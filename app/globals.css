@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* Brand Colors */
+  --trust-blue: #0066FF;
+  --success-green: #25D366;
+  --premium-indigo: #6366F1;
+  --dark-navy: #0F172A;
+  --slate-gray: #64748B;
+  --soft-gray: #F8FAFC;
+  --warning-amber: #F59E0B;
+  --error-red: #EF4444;
+  --info-cyan: #06B6D4;
+  
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #0066FF 0%, #6366F1 100%);
+  --gradient-success: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  --gradient-warm: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%);
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--dark-navy);
+  background: white;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--soft-gray);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--slate-gray);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dark-navy);
+}
+
+/* Smooth Transitions */
+a,
+button {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Focus Styles */
+*:focus-visible {
+  outline: 2px solid var(--trust-blue);
+  outline-offset: 2px;
+}
+
+/* Custom Utilities */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .glass {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* Component Styles */
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-primary text-white font-semibold px-6 py-3 rounded-lg shadow-primary hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-transparent text-trust-blue border-2 border-trust-blue font-semibold px-6 py-3 rounded-lg hover:bg-trust-blue hover:text-white transition-all duration-200;
+  }
+  
+  .btn-success {
+    @apply bg-success-green text-white font-semibold px-6 py-3 rounded-lg shadow-success hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg p-6 shadow-soft border border-gray-100 hover:shadow-lg transition-shadow duration-200;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-2.5 border border-gray-300 rounded-md focus:border-trust-blue focus:ring-2 focus:ring-trust-blue/20 outline-none transition-all duration-200;
+  }
+  
+  .section-padding {
+    @apply py-16 md:py-24 px-4 md:px-8;
+  }
+  
+  .container-custom {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+}
