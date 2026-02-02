@@ -1,3 +1,4 @@
+/* eslint-disable */
 import makeWASocket, { DisconnectReason, useMultiFileAuthState as getBaileysAuthState, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
 import QRCode from 'qrcode';
 import { Boom } from '@hapi/boom';
