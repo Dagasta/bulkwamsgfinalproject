@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { initializeBaileysWhatsApp, getBaileysQRCode, isBaileysReady, isBaileysInitializing } from '@/lib/whatsapp/baileys-client';
+import { connectToWhatsApp, getBaileysQRCode, isBaileysReady, isBaileysInitializing } from '@/lib/whatsapp/baileys-client';
 import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export async function GET() {
         console.log(`[Baileys Status] 📨 GET /api/whatsapp/status for user: ${userId}${user ? '' : ' (guest)'}`);
 
         // Initialize Baileys WhatsApp client for this user if not already done
-        await initializeBaileysWhatsApp(userId);
+        await connectToWhatsApp(userId);
 
         const qrCode = getBaileysQRCode(userId);
         const ready = isBaileysReady(userId);

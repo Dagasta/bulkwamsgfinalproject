@@ -20,7 +20,7 @@ let cachedVersion: [number, number, number] | null = null;
 // Locks to prevent multiple simultaneous initializations
 const initializationLocks = new Set<string>();
 
-export async function initializeBaileysWhatsApp(userId: string) {
+export async function connectToWhatsApp(userId: string) {
     // Check if already initializing or connected
     if (activeConnections.has(userId)) {
         const existing = activeConnections.get(userId)!;
