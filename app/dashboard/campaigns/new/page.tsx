@@ -36,7 +36,7 @@ export default function NewCampaignPage() {
         name: '',
         message: '',
         numbers: '',
-        attachment: null as File | null,
+        attachments: [] as File[],
     });
 
     const [errors, setErrors] = useState<string[]>([]);
@@ -144,18 +144,21 @@ export default function NewCampaignPage() {
         setSendProgress({ sent: 0, total: numbers.length });
 
         try {
-            let mediaData = null;
-            if (formData.attachment) {
-                const reader = new FileReader();
-                const filePromise = new Promise<{ data: string; mimetype: string; filename: string }>((resolve, reject) => {
-                    reader.onload = () => {
-                        const base64 = (reader.result as string).split(',')[1];
-                        resolve({ data: base64, mimetype: formData.attachment!.type, filename: formData.attachment!.name });
-                    };
-                    reader.onerror = reject;
-                });
-                reader.readAsDataURL(formData.attachment);
-                mediaData = (await filePromise) as any;
+            const mediaList = [];
+
+            if (formData.attachments.length > 0) {
+                for (const file of formData.attachments) {
+                    const reader = new FileReader();
+                    const filePromise = new Promise<{ data: string; mimetype: string; filename: string }>((resolve, reject) => {
+                        reader.onload = () => {
+                            const base64 = (reader.result as string).split(',')[1];
+                            resolve({ data: base64, mimetype: file.type, filename: file.name });
+                        };
+                        reader.onerror = reject;
+                    });
+                    reader.readAsDataURL(file);
+                    mediaList.push(await filePromise);
+                }
             }
 
             const contacts = numbers.map(phone => ({ phone, message: formData.message }));
@@ -164,9 +167,9 @@ export default function NewCampaignPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     type: 'bulk',
-                    name: formData.name, // Send campaign name
+                    name: formData.name,
                     contacts,
-                    media: mediaData
+                    mediaList
                 })
             });
 
@@ -294,41 +297,57 @@ export default function NewCampaignPage() {
                             <h2 className="text-2xl font-black text-dark-navy uppercase tracking-tight">Media Arsenal</h2>
                         </div>
 
-                        <div className="relative">
-                            {!formData.attachment ? (
-                                <div className="border-4 border-dashed border-slate-100 rounded-[32px] p-16 text-center hover:border-trust-blue hover:bg-slate-50 transition-all group cursor-pointer relative overflow-hidden">
+                        <div className="space-y-4">
+                            <div className="relative">
+                                <div className="border-4 border-dashed border-slate-100 rounded-[32px] p-10 text-center hover:border-trust-blue hover:bg-slate-50 transition-all group cursor-pointer relative overflow-hidden">
                                     <input
                                         type="file"
+                                        multiple
                                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                         onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) setFormData({ ...formData, attachment: file });
+                                            if (e.target.files) {
+                                                const newFiles = Array.from(e.target.files);
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    attachments: [...prev.attachments, ...newFiles]
+                                                }));
+                                            }
                                         }}
                                     />
-                                    <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 group-hover:bg-trust-blue group-hover:text-white transition-all shadow-sm">
-                                        <Upload className="w-10 h-10" />
+                                    <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 group-hover:bg-trust-blue group-hover:text-white transition-all shadow-sm">
+                                        <Upload className="w-8 h-8" />
                                     </div>
-                                    <p className="text-xl font-black text-dark-navy mb-2 italic">HD Assets Upload</p>
-                                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest text-[10px]">Max payload: 16MB (PDF, JPG, PNG)</p>
+                                    <p className="text-lg font-black text-dark-navy mb-1 italic">Add HD Assets</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Multiple files supported</p>
                                 </div>
-                            ) : (
-                                <div className="flex items-center justify-between p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl group animate-scale-up">
-                                    <div className="flex items-center gap-5">
-                                        <div className="w-16 h-16 bg-white rounded-2xl shadow-xl flex items-center justify-center text-trust-blue font-black border border-slate-100 rotate-1">
-                                            {formData.attachment.name.split('.').pop()?.toUpperCase()}
+                            </div>
+
+                            {formData.attachments.length > 0 && (
+                                <div className="grid gap-4 mt-6">
+                                    {formData.attachments.map((file, index) => (
+                                        <div key={index} className="flex items-center justify-between p-4 bg-slate-50 border-2 border-slate-100 rounded-3xl group animate-scale-up">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 bg-white rounded-2xl shadow-md flex items-center justify-center text-trust-blue font-black border border-slate-100 text-xs">
+                                                    {file.name.split('.').pop()?.toUpperCase()}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="font-black text-dark-navy max-w-[150px] md:max-w-[300px] truncate mb-0.5 text-sm italic">{file.name}</p>
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const newAttachments = [...formData.attachments];
+                                                    newAttachments.splice(index, 1);
+                                                    setFormData({ ...formData, attachments: newAttachments });
+                                                }}
+                                                className="w-10 h-10 flex items-center justify-center bg-white hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-xl transition-all shadow-sm border border-slate-100"
+                                            >
+                                                <X className="w-5 h-5" />
+                                            </button>
                                         </div>
-                                        <div>
-                                            <p className="font-black text-dark-navy max-w-[200px] truncate mb-1 italic">{formData.attachment.name}</p>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{(formData.attachment.size / 1024 / 1024).toFixed(2)} MB Payload</p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, attachment: null })}
-                                        className="w-12 h-12 flex items-center justify-center bg-white hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-2xl transition-all shadow-sm border border-slate-100"
-                                    >
-                                        <X className="w-6 h-6" />
-                                    </button>
+                                    ))}
                                 </div>
                             )}
                         </div>

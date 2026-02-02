@@ -12,25 +12,61 @@ export async function POST(request: NextRequest) {
         const userId = user?.id || 'guest-user';
 
         const body = await request.json();
-        const { type, to, message, contacts, media } = body;
+        const { type, to, message, contacts, mediaList } = body;
 
-        // Process media if present
-        let processedMedia = undefined;
-        if (media && media.data) {
-            // Data is base64 string
-            const buffer = Buffer.from(media.data, 'base64');
-            processedMedia = {
-                buffer,
-                mimetype: media.mimetype,
-                filename: media.filename
-            };
-        } else if (media && media.url) {
-            processedMedia = {
-                url: media.url,
-                mimetype: media.mimetype,
-                filename: media.filename
-            };
+        // Process media if present (support both single media and mediaList)
+        const incomingMedia = mediaList || (body.media ? [body.media] : []);
+        const processedMediaList: any[] = [];
+
+        for (const media of incomingMedia) {
+            if (media.data) {
+                processedMediaList.push({
+                    buffer: Buffer.from(media.data, 'base64'),
+                    mimetype: media.mimetype,
+                    filename: media.filename
+                });
+            } else if (media.url) {
+                processedMediaList.push({
+                    url: media.url,
+                    mimetype: media.mimetype,
+                    filename: media.filename
+                });
+            }
         }
+
+        // --- Automatic Contact Saving ---
+        if (user?.id) {
+            try {
+                const contactsToSave = type === 'single'
+                    ? [{ phone: to as string, name: to as string }]
+                    : contacts.map((c: { phone: string; name?: string }) => ({ phone: c.phone, name: c.name || c.phone }));
+
+                const uniqueContacts = contactsToSave.map((c: { phone: string; name: string }) => ({
+                    user_id: user.id,
+                    phone: c.phone.replace(/\D/g, ''),
+                    name: c.name,
+                    status: 'active',
+                    tags: ['broadcast-recipient']
+                }));
+
+                // Upsert contacts - if your table doesn't have a unique constraint on (user_id, phone), 
+                // this might create duplicates but it's the safest way without knowing the schema exactly.
+                // We attempt to deduplicate by phone for this batch at least.
+                const seenPhones = new Set();
+                const deduplicated = uniqueContacts.filter((c: { user_id: string; phone: string }) => {
+                    const id = `${c.user_id}-${c.phone}`;
+                    if (seenPhones.has(id)) return false;
+                    seenPhones.add(id);
+                    return true;
+                });
+
+                await supabase.from('contacts').upsert(deduplicated, { onConflict: 'user_id,phone' });
+            } catch (err) {
+                console.error('[Contact Save Error]:', err);
+                // Continue sending even if contact save fails
+            }
+        }
+        // ------------------------------
 
         if (type === 'single') {
             // Send single message
@@ -41,7 +77,7 @@ export async function POST(request: NextRequest) {
                 );
             }
 
-            await sendBaileysMessage(userId, to, message, processedMedia);
+            await sendBaileysMessage(userId, to, message, processedMediaList);
             return NextResponse.json({ success: true, message: 'Message sent successfully' });
         } else if (type === 'bulk') {
             // Send bulk messages
@@ -87,7 +123,7 @@ export async function POST(request: NextRequest) {
             if (campaignError) console.error('Error creating campaign:', campaignError);
 
             // 2. Perform Sending
-            const results = await sendBaileysBulkMessages(userId, contacts, processedMedia);
+            const results = await sendBaileysBulkMessages(userId, contacts, processedMediaList);
 
             // 3. Log results to messages table for precision tracking
             if (campaign) {

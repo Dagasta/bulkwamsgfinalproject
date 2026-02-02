@@ -219,7 +219,7 @@ export async function sendBaileysMessage(
     userId: string,
     to: string,
     message: string,
-    media?: { url?: string, buffer?: Buffer, mimetype?: string, filename?: string }
+    mediaList?: Array<{ url?: string, buffer?: Buffer, mimetype?: string, filename?: string }> | { url?: string, buffer?: Buffer, mimetype?: string, filename?: string }
 ) {
     const connection = activeConnections.get(userId);
 
@@ -235,34 +235,46 @@ export async function sendBaileysMessage(
         const formattedNumber = to.replace(/\D/g, '');
         const jid = `${formattedNumber}@s.whatsapp.net`;
 
-        if (media) {
-            // Determine if it's an image or a general document
-            const isImage = media.mimetype?.startsWith('image/');
-            const isVideo = media.mimetype?.startsWith('video/');
-            const isAudio = media.mimetype?.startsWith('audio/');
+        // Normalize mediaList to an array
+        const normalizedMediaList = Array.isArray(mediaList) ? mediaList : (mediaList ? [mediaList] : []);
 
-            let content: any = { caption: resolvedMessage };
+        if (normalizedMediaList.length > 0) {
+            for (let i = 0; i < normalizedMediaList.length; i++) {
+                const media = normalizedMediaList[i];
+                // Determine if it's an image or a general document
+                const isImage = media.mimetype?.startsWith('image/');
+                const isVideo = media.mimetype?.startsWith('video/');
+                const isAudio = media.mimetype?.startsWith('audio/');
 
-            if (isImage) {
-                content.image = media.buffer || { url: media.url };
-            } else if (isVideo) {
-                content.video = media.buffer || { url: media.url };
-            } else if (isAudio) {
-                content.audio = media.buffer || { url: media.url };
-                content.mimetype = media.mimetype;
-            } else {
-                content.document = media.buffer || { url: media.url };
-                content.mimetype = media.mimetype || 'application/octet-stream';
-                content.fileName = media.filename || 'document';
+                // Attach caption ONLY to the first media message
+                let content: any = { caption: i === 0 ? resolvedMessage : '' };
+
+                if (isImage) {
+                    content.image = media.buffer || { url: media.url };
+                } else if (isVideo) {
+                    content.video = media.buffer || { url: media.url };
+                } else if (isAudio) {
+                    content.audio = media.buffer || { url: media.url };
+                    content.mimetype = media.mimetype;
+                } else {
+                    content.document = media.buffer || { url: media.url };
+                    content.mimetype = media.mimetype || 'application/octet-stream';
+                    content.fileName = media.filename || 'document';
+                }
+
+                await connection.socket.sendMessage(jid, content);
+
+                // Small delay between media items if there are multiple
+                if (normalizedMediaList.length > 1 && i < normalizedMediaList.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
             }
-
-            await connection.socket.sendMessage(jid, content);
         } else {
             // Send text message
             await connection.socket.sendMessage(jid, { text: resolvedMessage });
         }
 
-        console.log(`[Baileys] ✅ Message sent to ${to}`);
+        console.log(`[Baileys] ✅ Message(s) sent to ${to}`);
         return { success: true };
     } catch (error) {
         console.error(`[Baileys] ❌ Error sending message:`, error);
@@ -273,7 +285,7 @@ export async function sendBaileysMessage(
 export async function sendBaileysBulkMessages(
     userId: string,
     contacts: Array<{ phone: string; message: string }>,
-    media?: { url?: string, buffer?: Buffer, mimetype?: string, filename?: string }
+    mediaList?: Array<{ url?: string, buffer?: Buffer, mimetype?: string, filename?: string }> | { url?: string, buffer?: Buffer, mimetype?: string, filename?: string }
 ) {
     const connection = activeConnections.get(userId);
 
@@ -286,7 +298,7 @@ export async function sendBaileysBulkMessages(
 
     for (const contact of contacts) {
         try {
-            await sendBaileysMessage(userId, contact.phone, contact.message, media);
+            await sendBaileysMessage(userId, contact.phone, contact.message, mediaList);
             results.push({ phone: contact.phone, success: true });
             count++;
 
