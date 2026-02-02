@@ -137,8 +137,8 @@ export default function RealEstateUseCasePage() {
                             </div>
                         </div>
                         <p className="text-lg text-slate-gray italic mb-4">
-                            "BulkWaMsg transformed my real estate business. I can now send property listings
-                            to hundreds of potential buyers instantly. My closing rate increased by 40% in just 3 months!"
+                            &quot;BulkWaMsg transformed my real estate business. I can now send property listings
+                            to hundreds of potential buyers instantly. My closing rate increased by 40% in just 3 months!&quot;
                         </p>
                         <div className="flex items-center gap-1">
                             {[1, 2, 3, 4, 5].map((i) => (

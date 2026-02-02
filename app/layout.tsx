@@ -24,7 +24,6 @@ export const metadata: Metadata = {
         "best bulk whatsapp sender 2025"
     ],
     authors: [{ name: "BulkWaMsg Team" }],
-    viewport: "width=device-width, initial-scale=1, maximum-scale=1",
     openGraph: {
         title: "BulkWaMsg | #1 Bulk WhatsApp Marketing Software",
         description: "Scale your business with automated WhatsApp marketing. Send thousands of messages for free.",
@@ -61,6 +60,12 @@ export const metadata: Metadata = {
             'max-snippet': -1,
         },
     },
+};
+
+export const viewport = {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
 };
 
 export default function RootLayout({

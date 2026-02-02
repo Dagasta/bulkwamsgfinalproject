@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { QrCode, CheckCircle2, Loader2, RefreshCw, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function WhatsAppConnectPage() {
     const [qrCode, setQrCode] = useState<string | null>(null);
@@ -179,7 +180,14 @@ export default function WhatsAppConnectPage() {
                             <div className="p-1.5 rounded-[44px] bg-gradient-primary shadow-2xl relative">
                                 <div className="absolute -inset-4 bg-gradient-primary blur-2xl opacity-10"></div>
                                 <div className="bg-white p-6 rounded-[38px] relative">
-                                    <img src={qrCode} alt="WhatsApp QR Code" className="w-72 h-72 md:w-80 md:h-80" />
+                                    <Image
+                                        src={qrCode}
+                                        alt="WhatsApp QR Code"
+                                        width={320}
+                                        height={320}
+                                        className="w-72 h-72 md:w-80 md:h-80"
+                                        unoptimized
+                                    />
                                 </div>
                             </div>
                             <p className="mt-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Encrypted Handshake Protocol v2.1</p>

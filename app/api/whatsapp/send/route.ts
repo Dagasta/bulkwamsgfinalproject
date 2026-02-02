@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendBaileysMessage, sendBaileysBulkMessages } from '@/lib/whatsapp/baileys-client';
 import { createClient } from '@/lib/supabase/server';
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
     try {

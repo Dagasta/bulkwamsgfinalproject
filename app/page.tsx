@@ -53,7 +53,7 @@ export default function HomePage() {
                         </h1>
 
                         <p className="text-xl md:text-2xl text-slate-gray leading-relaxed max-w-2xl mx-auto font-medium opacity-90">
-                            The world's most powerful Bulk WhatsApp platform for modern marketing. 100% Secure. Unlimited Scale. Professional Results.
+                            The world&apos;s most powerful Bulk WhatsApp platform for modern marketing. 100% Secure. Unlimited Scale. Professional Results.
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-6 justify-center pt-6 animate-slide-up delay-100">
