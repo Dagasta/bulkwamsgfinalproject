@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MessageSquare, Mail, Lock, User, ArrowRight, CheckCircle2 } from 'lucide-react';
@@ -8,7 +8,7 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
 
-export default function SignupPage() {
+function SignupForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const plan = searchParams.get('plan');
@@ -200,6 +200,21 @@ export default function SignupPage() {
                 </div>
             </div>
         </main>
+    );
+}
+
+export default function SignupPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gradient-to-br from-soft-gray via-white to-blue-50 flex items-center justify-center p-4">
+                <div className="text-center">
+                    <div className="w-12 h-12 bg-indigo-600 rounded-lg animate-pulse mx-auto mb-4"></div>
+                    <p className="text-slate-gray font-medium">Loading signup...</p>
+                </div>
+            </div>
+        }>
+            <SignupForm />
+        </Suspense>
     );
 }
 
