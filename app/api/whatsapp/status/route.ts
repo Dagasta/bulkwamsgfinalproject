@@ -1,28 +1,29 @@
 import { NextResponse } from 'next/server';
-import { initializeWhatsApp, getQRCode, isWhatsAppReady, isWhatsAppInitializing } from '@/lib/whatsapp/client';
+import { initializeBaileysWhatsApp, getBaileysQRCode, isBaileysReady, isBaileysInitializing } from '@/lib/whatsapp/baileys-client';
 import { createClient } from '@/lib/supabase/server';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
     try {
-        // Get authenticated user
+        // Get authenticated user (optional for QR code display)
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
-        if (!user) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
-        }
+        // Use user ID if authenticated, otherwise use a guest ID
+        const userId = user?.id || 'guest-user';
 
-        const userId = user.id;
+        console.log(`[Baileys Status] 📨 GET /api/whatsapp/status for user: ${userId}${user ? '' : ' (guest)'}`);
 
-        // Initialize WhatsApp client for this user if not already done
-        initializeWhatsApp(userId);
+        // Initialize Baileys WhatsApp client for this user if not already done
+        await initializeBaileysWhatsApp(userId);
 
-        const qrCode = getQRCode(userId);
-        const ready = isWhatsAppReady(userId);
-        const initializing = isWhatsAppInitializing(userId);
+        const qrCode = getBaileysQRCode(userId);
+        const ready = isBaileysReady(userId);
+        const initializing = isBaileysInitializing(userId);
+
+        console.log(`[Baileys Status] 📊 User ${userId} - Ready: ${ready}, QR: ${!!qrCode}, Init: ${initializing}`);
 
         return NextResponse.json({
             qrCode,
@@ -37,9 +38,9 @@ export async function GET() {
                         : 'Starting connection...'
         });
     } catch (error) {
-        console.error('WhatsApp status error:', error);
+        console.error('[Baileys Status] ❌ API error:', error);
         return NextResponse.json(
-            { error: 'Failed to get WhatsApp status' },
+            { error: 'Failed to get WhatsApp status', details: String(error) },
             { status: 500 }
         );
     }

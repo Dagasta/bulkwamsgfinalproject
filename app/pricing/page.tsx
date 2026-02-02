@@ -1,340 +1,199 @@
-import { Metadata } from 'next';
-import Link from 'next/link';
-import { Check, X, ArrowRight, Zap, Shield, BarChart3 } from 'lucide-react';
+'use client';
 
-export const metadata: Metadata = {
-    title: 'Pricing - BulkWaMsg | Affordable WhatsApp Bulk Messaging Plans',
-    description: 'Choose the perfect plan for your business. Start free or upgrade to send unlimited WhatsApp messages. Flexible pricing with no hidden fees.',
-    keywords: ['bulk whatsapp pricing', 'whatsapp marketing pricing', 'bulk messaging plans', 'whatsapp sender cost'],
-};
+import { useState } from 'react';
+import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
+import { Check, Zap, Shield, Crown, ArrowRight, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+const plans = [
+    {
+        id: 'pro-monthly',
+        name: 'Pro Monthly',
+        price: '10',
+        features: [
+            'Unlimited WhatsApp Messages',
+            'HD Media Attachments',
+            'Priority Message Queue',
+            'Safety Delay Protocols',
+            '24/7 Premium Support',
+            'Campaign Analytics'
+        ],
+        popular: true,
+        gradient: 'from-trust-blue to-premium-indigo'
+    },
+    {
+        id: 'pro-yearly',
+        name: 'Pro Yearly',
+        price: '120',
+        features: [
+            'Everything in Monthly',
+            'Elite Priority Queue',
+            'Multiple Device Support',
+            'Custom Sender Name',
+            'White-label Reports',
+            'Dedicated Account Manager'
+        ],
+        popular: false,
+        gradient: 'from-dark-navy to-slate-900'
+    }
+];
 
 export default function PricingPage() {
+    const [loading, setLoading] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
+    const router = useRouter();
+
+    const paypalOptions = {
+        clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '',
+        currency: 'USD',
+        intent: 'capture',
+    };
+
+    if (!paypalOptions.clientId) {
+        console.warn('PayPal Client ID is missing in the frontend. Ensure NEXT_PUBLIC_PAYPAL_CLIENT_ID is set in .env.local');
+    }
+
+    const handleCreateOrder = async (plan: any) => {
+        try {
+            const response = await fetch('/api/paypal/create-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ planId: plan.id, amount: plan.price }),
+            });
+            const order = await response.json();
+
+            if (order.id) {
+                return order.id;
+            } else {
+                console.error('PayPal Order Error Details:', order);
+                alert('PayPal Order Error: ' + (order.message || 'Check console for details'));
+            }
+        } catch (error) {
+            console.error('Create Order Request Failed:', error);
+            alert('Payment system connection failed. Please try again.');
+        }
+    };
+
+    const handleApprove = async (data: any) => {
+        setLoading('capturing');
+        try {
+            const response = await fetch('/api/paypal/capture-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderID: data.orderID }),
+            });
+            const result = await response.json();
+            if (result.success) {
+                setSuccess(true);
+                setTimeout(() => router.push('/dashboard'), 2000);
+            } else {
+                alert('Payment captured but could not update profile. Please contact support.');
+                console.error('Capture result error:', result);
+            }
+        } catch (error) {
+            console.error('Capture Error:', error);
+            alert('Failed to complete payment. Please check your bank and try again.');
+        } finally {
+            setLoading(null);
+        }
+    };
+
     return (
-        <main className="min-h-screen bg-soft-gray">
-            {/* Navigation - Same as homepage */}
-            <nav className="border-b border-gray-100 bg-white">
-                <div className="container-custom">
-                    <div className="flex items-center justify-between h-16">
-                        <Link href="/" className="flex items-center gap-2">
-                            <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
-                                <span className="text-white font-bold">BW</span>
-                            </div>
-                            <span className="text-xl font-bold text-dark-navy">BulkWaMsg</span>
-                        </Link>
-
-                        <div className="flex items-center gap-4">
-                            <Link href="/login" className="text-trust-blue font-semibold">
-                                Sign In
-                            </Link>
-                            <Link href="/signup" className="btn-primary">
-                                Start Free Trial
-                            </Link>
-                        </div>
+        <div className="min-h-screen bg-soft-gray pb-20">
+            <div className="container-custom py-20 px-4">
+                <div className="text-center max-w-3xl mx-auto mb-20 space-y-6">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-trust-blue/10 text-trust-blue text-sm font-black uppercase tracking-widest">
+                        <Crown className="w-4 h-4" />
+                        Exclusive Pro Access
                     </div>
-                </div>
-            </nav>
-
-            {/* Hero */}
-            <section className="section-padding bg-white">
-                <div className="container-custom text-center">
-                    <h1 className="text-5xl md:text-6xl font-bold text-dark-navy mb-6">
-                        Simple, Transparent Pricing
+                    <h1 className="text-5xl md:text-7xl font-black text-dark-navy tracking-tight">
+                        Power Up Your <span className="gradient-text">Marketing</span>
                     </h1>
-                    <p className="text-xl text-slate-gray max-w-2xl mx-auto mb-4">
-                        Choose the perfect plan for your business. No hidden fees, cancel anytime.
+                    <p className="text-xl text-slate-gray font-medium">
+                        Unlock the full potential of BulkWaMsg and start reaching thousands of customers instantly.
+                        Pay once, dominate forever.
                     </p>
-                    <div className="inline-flex items-center gap-2 bg-green-50 text-success-green px-4 py-2 rounded-full text-sm font-medium">
-                        <Zap className="w-4 h-4" />
-                        <span>Start free, upgrade as you grow</span>
-                    </div>
                 </div>
-            </section>
 
-            {/* Pricing Cards */}
-            <section className="section-padding">
-                <div className="container-custom">
-                    <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                        {/* Free Plan */}
-                        <div className="card">
-                            <div className="mb-6">
-                                <h3 className="text-2xl font-bold text-dark-navy mb-2">Free</h3>
-                                <p className="text-slate-gray">Perfect for testing</p>
+                {success && (
+                    <div className="fixed inset-0 bg-dark-navy/90 backdrop-blur-xl z-[100] flex items-center justify-center p-6">
+                        <div className="bg-white rounded-[40px] p-12 max-w-md w-full text-center shadow-2xl animate-scale-up">
+                            <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-8 text-success-green">
+                                <Check className="w-12 h-12" />
                             </div>
-
-                            <div className="mb-6">
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-5xl font-bold text-dark-navy">$0</span>
-                                    <span className="text-slate-gray">/month</span>
-                                </div>
-                            </div>
-
-                            <Link href="/signup" className="btn-secondary w-full mb-6 text-center">
-                                Get Started Free
-                            </Link>
-
-                            <div className="space-y-3">
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm">50 messages/month</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm">100 contacts</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm">Basic features</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm">Email support</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <X className="w-5 h-5 text-gray-300 flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm text-gray-400">Advanced analytics</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <X className="w-5 h-5 text-gray-300 flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm text-gray-400">API access</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Starter Plan - Most Popular */}
-                        <div className="card border-2 border-trust-blue relative">
-                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-trust-blue text-white px-4 py-1 rounded-full text-sm font-medium">
-                                Most Popular
-                            </div>
-
-                            <div className="mb-6">
-                                <h3 className="text-2xl font-bold text-dark-navy mb-2">Starter</h3>
-                                <p className="text-slate-gray">For growing businesses</p>
-                            </div>
-
-                            <div className="mb-6">
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-5xl font-bold text-dark-navy">$29</span>
-                                    <span className="text-slate-gray">/month</span>
-                                </div>
-                            </div>
-
-                            <Link href="/signup?plan=starter" className="btn-primary w-full mb-6 text-center">
-                                Start 14-Day Trial
-                            </Link>
-
-                            <div className="space-y-3">
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm font-medium">5,000 messages/month</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm font-medium">1,000 contacts</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm font-medium">All core features</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm font-medium">Campaign scheduling</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm font-medium">Basic analytics</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm font-medium">Priority email support</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <X className="w-5 h-5 text-gray-300 flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm text-gray-400">API access</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Professional Plan */}
-                        <div className="card">
-                            <div className="mb-6">
-                                <h3 className="text-2xl font-bold text-dark-navy mb-2">Professional</h3>
-                                <p className="text-slate-gray">For power users</p>
-                            </div>
-
-                            <div className="mb-6">
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-5xl font-bold text-dark-navy">$79</span>
-                                    <span className="text-slate-gray">/month</span>
-                                </div>
-                            </div>
-
-                            <Link href="/signup?plan=pro" className="btn-primary w-full mb-6 text-center">
-                                Start 14-Day Trial
-                            </Link>
-
-                            <div className="space-y-3">
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm font-medium">25,000 messages/month</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm font-medium">10,000 contacts</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm font-medium">All features included</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm font-medium">Advanced analytics</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm font-medium">API access</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm font-medium">Priority support</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-success-green flex-shrink-0 mt-0.5" />
-                                    <span className="text-sm font-medium">Custom integrations</span>
-                                </div>
-                            </div>
+                            <h2 className="text-3xl font-black text-dark-navy mb-4 italic">Payment Secured!</h2>
+                            <p className="text-slate-gray mb-8 font-medium italic">Welcome to the Pro family. Redirecting you to your powerhouse...</p>
+                            <Loader2 className="w-8 h-8 text-trust-blue animate-spin mx-auto" />
                         </div>
                     </div>
+                )}
 
-                    {/* Enterprise */}
-                    <div className="card max-w-4xl mx-auto mt-8 bg-gradient-to-br from-dark-navy to-premium-indigo text-white">
-                        <div className="grid md:grid-cols-2 gap-8 items-center">
-                            <div>
-                                <h3 className="text-3xl font-bold mb-4">Enterprise</h3>
-                                <p className="text-white/80 mb-6">
-                                    Custom solutions for large organizations. Unlimited messages, dedicated support, and custom features.
-                                </p>
-                                <ul className="space-y-3 mb-6">
-                                    <li className="flex items-center gap-3">
-                                        <Check className="w-5 h-5 text-success-green" />
-                                        <span>Unlimited messages & contacts</span>
-                                    </li>
-                                    <li className="flex items-center gap-3">
-                                        <Check className="w-5 h-5 text-success-green" />
-                                        <span>Dedicated account manager</span>
-                                    </li>
-                                    <li className="flex items-center gap-3">
-                                        <Check className="w-5 h-5 text-success-green" />
-                                        <span>Custom integrations & features</span>
-                                    </li>
-                                    <li className="flex items-center gap-3">
-                                        <Check className="w-5 h-5 text-success-green" />
-                                        <span>SLA guarantee</span>
-                                    </li>
-                                </ul>
-                            </div>
-                            <div className="text-center md:text-right">
-                                <p className="text-4xl font-bold mb-6">Custom Pricing</p>
-                                <Link href="/contact?plan=enterprise" className="bg-white text-trust-blue font-semibold px-8 py-4 rounded-lg hover:shadow-xl transition-all inline-flex items-center gap-2">
-                                    Contact Sales
-                                    <ArrowRight className="w-5 h-5" />
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
+                <PayPalScriptProvider options={paypalOptions}>
+                    <div className="grid md:grid-cols-2 gap-10 max-w-5xl mx-auto">
+                        {plans.map((plan) => (
+                            <div
+                                key={plan.id}
+                                className={`relative rounded-[48px] p-1 bg-gradient-to-br ${plan.gradient} shadow-2xl transition-transform hover:scale-[1.02] duration-500`}
+                            >
+                                {plan.popular && (
+                                    <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-gradient-warm text-white px-6 py-2 rounded-full font-black text-sm uppercase tracking-widest shadow-xl">
+                                        Most Popular
+                                    </div>
+                                )}
 
-            {/* Features Comparison */}
-            <section className="section-padding bg-white">
-                <div className="container-custom">
-                    <h2 className="text-3xl font-bold text-dark-navy text-center mb-12">
-                        All Plans Include
-                    </h2>
+                                <div className="bg-white rounded-[44px] h-full p-10 md:p-14 flex flex-col">
+                                    <div className="mb-10">
+                                        <h3 className="text-2xl font-black text-dark-navy mb-2">{plan.name}</h3>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-5xl font-black text-dark-navy">${plan.price}</span>
+                                            <span className="text-slate-400 font-bold">{plan.id.includes('monthly') ? '/mo' : '/yr'}</span>
+                                        </div>
+                                    </div>
 
-                    <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-                        <div className="text-center">
-                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Shield className="w-8 h-8 text-trust-blue" />
-                            </div>
-                            <h3 className="font-semibold text-dark-navy mb-2">Anti-Spam Protection</h3>
-                            <p className="text-sm text-slate-gray">Built-in safety features to prevent bans</p>
-                        </div>
+                                    <ul className="space-y-5 mb-12 flex-1">
+                                        {plan.features.map((feature, i) => (
+                                            <li key={i} className="flex items-center gap-4 text-slate-600 font-medium">
+                                                <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center text-trust-blue shrink-0">
+                                                    <Check className="w-4 h-4 stroke-[3px]" />
+                                                </div>
+                                                {feature}
+                                            </li>
+                                        ))}
+                                    </ul>
 
-                        <div className="text-center">
-                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <BarChart3 className="w-8 h-8 text-trust-blue" />
-                            </div>
-                            <h3 className="font-semibold text-dark-navy mb-2">Real-Time Analytics</h3>
-                            <p className="text-sm text-slate-gray">Track delivery and engagement rates</p>
-                        </div>
+                                    <PayPalButtons
+                                        style={{ layout: 'vertical', shape: 'pill', label: 'pay' }}
+                                        createOrder={() => handleCreateOrder(plan)}
+                                        onApprove={(data) => handleApprove(data)}
+                                        className="relative z-10"
+                                    />
 
-                        <div className="text-center">
-                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Zap className="w-8 h-8 text-trust-blue" />
-                            </div>
-                            <h3 className="font-semibold text-dark-navy mb-2">Lightning Fast</h3>
-                            <p className="text-sm text-slate-gray">Send thousands of messages instantly</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* FAQ */}
-            <section className="section-padding">
-                <div className="container-custom max-w-3xl">
-                    <h2 className="text-3xl font-bold text-dark-navy text-center mb-12">
-                        Frequently Asked Questions
-                    </h2>
-
-                    <div className="space-y-6">
-                        {faqs.map((faq, index) => (
-                            <div key={index} className="card">
-                                <h3 className="font-semibold text-dark-navy mb-2">{faq.question}</h3>
-                                <p className="text-slate-gray">{faq.answer}</p>
+                                    <p className="text-center mt-6 text-xs text-slate-400 font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+                                        <Shield className="w-3 h-3" />
+                                        Secure SSL Encrypted Payment
+                                    </p>
+                                </div>
                             </div>
                         ))}
                     </div>
-                </div>
-            </section>
+                </PayPalScriptProvider>
 
-            {/* CTA */}
-            <section className="section-padding bg-gradient-primary text-white">
-                <div className="container-custom text-center">
-                    <h2 className="text-4xl font-bold mb-6">
-                        Ready to Get Started?
-                    </h2>
-                    <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-                        Start your 14-day free trial today. No credit card required.
-                    </p>
-                    <Link href="/signup" className="bg-white text-trust-blue font-semibold px-8 py-4 rounded-lg hover:shadow-xl transition-all inline-flex items-center gap-2">
-                        Start Free Trial
-                        <ArrowRight className="w-5 h-5" />
-                    </Link>
+                <div className="mt-20 grid md:grid-cols-3 gap-8">
+                    {[
+                        { icon: Zap, title: 'Instant Activation', desc: 'No waiting time. Get Pro features immediately after checkout.' },
+                        { icon: Shield, title: 'No Hidden Fees', desc: 'Transparent pricing. Pay once and enjoy all listed features.' },
+                        { icon: ArrowRight, title: 'Trusted Globally', desc: 'Join 5,000+ businesses scaling their reach with BulkWaMsg.' }
+                    ].map((item, i) => (
+                        <div key={i} className="text-center p-8">
+                            <div className="w-14 h-14 bg-white rounded-2xl shadow-lg flex items-center justify-center mx-auto mb-6 text-trust-blue">
+                                <item.icon className="w-7 h-7" />
+                            </div>
+                            <h4 className="text-xl font-black text-dark-navy mb-3">{item.title}</h4>
+                            <p className="text-slate-500 font-medium leading-relaxed">{item.desc}</p>
+                        </div>
+                    ))}
                 </div>
-            </section>
-        </main>
+            </div>
+        </div>
     );
 }
-
-const faqs = [
-    {
-        question: 'Can I change plans anytime?',
-        answer: 'Yes! You can upgrade, downgrade, or cancel your plan at any time. Changes take effect immediately.',
-    },
-    {
-        question: 'What happens if I exceed my message limit?',
-        answer: 'Your campaigns will be paused until the next billing cycle. You can upgrade your plan anytime to continue sending.',
-    },
-    {
-        question: 'Do you offer refunds?',
-        answer: 'We offer a 14-day money-back guarantee on all paid plans. No questions asked.',
-    },
-    {
-        question: 'Is there a setup fee?',
-        answer: 'No setup fees, no hidden charges. You only pay for your chosen plan.',
-    },
-    {
-        question: 'Can I use my own WhatsApp number?',
-        answer: 'Yes! You connect your own WhatsApp account via QR code. We never ask for your password.',
-    },
-];

@@ -116,7 +116,7 @@ export default function SignupPage() {
 
                         <h1 className="text-3xl font-bold text-dark-navy mb-2">Create Your Account</h1>
                         <p className="text-slate-gray mb-6">
-                            {plan ? `Start your ${plan} plan trial` : 'Start your 14-day free trial'}
+                            {plan ? `Join the ${plan} community` : 'Unlock Enterprise-grade Messaging'}
                         </p>
 
                         {error && (
@@ -205,15 +205,15 @@ export default function SignupPage() {
 
 const benefits = [
     {
-        title: '14-Day Free Trial',
-        description: 'No credit card required. Start sending messages immediately.',
+        title: 'Unlimited Access',
+        description: 'Send messages without limits to your entire customer base.',
     },
     {
         title: 'Easy Setup',
         description: 'Connect your WhatsApp and start sending in under 5 minutes.',
     },
     {
-        title: 'Cancel Anytime',
-        description: 'No long-term contracts. Cancel your subscription whenever you want.',
+        title: 'Enterprise Security',
+        description: 'Your data is safe with our encrypted protocols and private nodes.',
     },
 ];

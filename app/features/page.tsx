@@ -1,189 +1,120 @@
-import { Metadata } from 'next';
 import Navigation from '@/components/ui/Navigation';
 import Footer from '@/components/ui/Footer';
-import Link from 'next/link';
-import { MessageSquare, Calendar, Users, BarChart3, Shield, Zap, ArrowRight } from 'lucide-react';
-
-export const metadata: Metadata = {
-    title: 'Features - BulkWaMsg | Powerful WhatsApp Marketing Tools',
-    description: 'Explore all BulkWaMsg features: bulk messaging, contact management, campaign scheduling, analytics, and more.',
-    keywords: ['whatsapp features', 'bulk messaging features', 'whatsapp marketing tools'],
-};
+import { Send, Shield, BarChart3, Users, Zap, Globe, MessageSquare, Headphones, Layers } from 'lucide-react';
 
 export default function FeaturesPage() {
     return (
         <main className="min-h-screen">
             <Navigation />
 
-            {/* Hero */}
-            <section className="section-padding bg-gradient-to-br from-soft-gray via-white to-blue-50">
-                <div className="container-custom text-center">
-                    <h1 className="text-5xl md:text-6xl font-bold text-dark-navy mb-6">
-                        Everything You Need to Succeed
+            {/* Header */}
+            <section className="pt-32 pb-20 bg-dark-navy text-white relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-primary opacity-20"></div>
+                <div className="container-custom text-center relative z-10">
+                    <h1 className="text-5xl md:text-8xl font-black mb-8 tracking-tighter">
+                        The Master <br /> <span className="text-indigo-400">Toolkit.</span>
                     </h1>
-                    <p className="text-xl text-slate-gray max-w-3xl mx-auto">
-                        Powerful features designed to help you reach more customers, save time, and grow your business through WhatsApp marketing.
+                    <p className="text-xl text-slate-400 max-w-2xl mx-auto font-medium">
+                        Everything you need to dominate WhatsApp marketing at scale. Built for peak performance.
                     </p>
                 </div>
             </section>
 
-            {/* Core Features */}
-            <section className="section-padding bg-white">
+            {/* Feature Grid */}
+            <section className="py-32 bg-white">
                 <div className="container-custom">
-                    <h2 className="text-4xl font-bold text-dark-navy text-center mb-12">Core Features</h2>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {coreFeatures.map((feature, index) => (
-                            <div key={index} className="card group hover:border-trust-blue cursor-pointer">
-                                <div className="w-12 h-12 bg-gradient-primary rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                                    <feature.icon className="w-6 h-6 text-white" />
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-16">
+                        {[
+                            {
+                                icon: Send,
+                                title: 'Sonic Bulk Sender',
+                                desc: 'Dispatch thousands of high-definition signals in minutes. Our engine is optimized for zero-delay operations.'
+                            },
+                            {
+                                icon: Shield,
+                                title: 'Ghost-Mode Safety',
+                                desc: 'Proprietary anti-scan technology. Advanced content rotation and variable delays keep your node protected.'
+                            },
+                            {
+                                icon: BarChart3,
+                                title: 'Live Telemetry',
+                                desc: 'Visual analytics dashboard showing delivery heath, interaction rates, and engagement DNA in real-time.'
+                            },
+                            {
+                                icon: Users,
+                                title: 'Contact Vault',
+                                desc: 'Enterprise-grade lead management. Import 100k+ leads, apply matrix segments, and manage with precision.'
+                            },
+                            {
+                                icon: MessageSquare,
+                                title: 'Smart Templates',
+                                desc: 'Create and save complex broadcasts with personalization support. Never write the same message twice.'
+                            },
+                            {
+                                icon: Layers,
+                                title: 'Multi-Media Arsenal',
+                                desc: 'Native support for 4K images, PDF whitepapers, and high-fidelity video attachments.'
+                            },
+                            {
+                                icon: Zap,
+                                title: 'Instant Neural Link',
+                                desc: 'Connect your device via our secure QR protocol in 5 seconds. No complex API approvals required.'
+                            },
+                            {
+                                icon: Globe,
+                                title: 'Global Handshake',
+                                desc: 'Send signals anywhere in the world. Fully compatible with international number protocols.'
+                            },
+                            {
+                                icon: Headphones,
+                                title: 'Elite Support',
+                                desc: '24/7 technical monitoring. Access our team of communication experts whenever you need assistance.'
+                            }
+                        ].map((feature, i) => (
+                            <div key={i} className="group space-y-6">
+                                <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-trust-blue shadow-inner group-hover:bg-gradient-primary group-hover:text-white group-hover:scale-110 transition-all">
+                                    <feature.icon className="w-10 h-10" />
                                 </div>
-                                <h3 className="text-xl font-semibold text-dark-navy mb-2">{feature.title}</h3>
-                                <p className="text-slate-gray leading-relaxed mb-4">{feature.description}</p>
-                                {feature.link && (
-                                    <Link href={feature.link} className="text-trust-blue font-semibold hover:underline inline-flex items-center gap-1">
-                                        Learn more <ArrowRight className="w-4 h-4" />
-                                    </Link>
-                                )}
+                                <h3 className="text-2xl font-black text-dark-navy tracking-tight">{feature.title}</h3>
+                                <p className="text-lg text-slate-gray font-medium leading-relaxed">{feature.desc}</p>
                             </div>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* Feature Highlights */}
-            <section className="section-padding bg-soft-gray">
+            {/* Depth Section */}
+            <section className="py-32 bg-slate-50">
                 <div className="container-custom">
-                    {highlights.map((highlight, index) => (
-                        <div key={index} className={`grid lg:grid-cols-2 gap-12 items-center mb-16 ${index % 2 === 1 ? 'lg:flex-row-reverse' : ''}`}>
-                            <div className={index % 2 === 1 ? 'lg:order-2' : ''}>
-                                <div className="inline-flex items-center gap-2 bg-blue-50 text-trust-blue px-4 py-2 rounded-full text-sm font-medium mb-4">
-                                    {highlight.badge}
-                                </div>
-                                <h2 className="text-3xl font-bold text-dark-navy mb-4">{highlight.title}</h2>
-                                <p className="text-slate-gray leading-relaxed mb-6">{highlight.description}</p>
-                                <ul className="space-y-3">
-                                    {highlight.points.map((point, pointIndex) => (
-                                        <li key={pointIndex} className="flex items-start gap-3">
-                                            <div className="w-6 h-6 bg-success-green/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                <div className="w-2 h-2 bg-success-green rounded-full" />
+                    <div className="bg-white rounded-[60px] p-12 md:p-24 shadow-2xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-trust-blue opacity-5 rounded-full blur-3xl"></div>
+                        <div className="grid lg:grid-cols-2 gap-20 items-center">
+                            <div className="space-y-10">
+                                <h2 className="text-4xl md:text-6xl font-black text-dark-navy tracking-tight italic">Precision <br /> <span className="gradient-text">Engineering.</span></h2>
+                                <p className="text-xl text-slate-gray font-medium leading-relaxed">
+                                    Unlike basic tools, BulkWaMsg uses a tactical approach to signal dispatch. We mimic human behavior pattern to ensure your marketing message isn't just sent, but actually received and read.
+                                </p>
+                                <ul className="space-y-4">
+                                    {['Zero API Fees', 'End-to-End Encryption', 'Real-time Monitoring', 'No Lead Limit'].map((item, i) => (
+                                        <li key={i} className="flex items-center gap-4 text-dark-navy font-bold">
+                                            <div className="w-6 h-6 bg-success-green/10 rounded-lg flex items-center justify-center text-success-green">
+                                                <Zap className="w-4 h-4 fill-success-green" />
                                             </div>
-                                            <span className="text-slate-gray">{point}</span>
+                                            {item}
                                         </li>
                                     ))}
                                 </ul>
                             </div>
-                            <div className={index % 2 === 1 ? 'lg:order-1' : ''}>
-                                <div className="card bg-gradient-to-br from-trust-blue to-premium-indigo p-8 text-white">
-                                    <div className="aspect-video bg-white/10 backdrop-blur-sm rounded-lg flex items-center justify-center">
-                                        <highlight.icon className="w-24 h-24 text-white/50" />
-                                    </div>
-                                </div>
+                            <div className="aspect-square bg-slate-50 rounded-[48px] shadow-inner flex items-center justify-center relative group">
+                                <div className="absolute inset-20 bg-gradient-primary rounded-full blur-3xl opacity-20 group-hover:scale-150 transition-all duration-1000"></div>
+                                <BarChart3 className="w-32 h-32 text-trust-blue relative z-10" />
                             </div>
                         </div>
-                    ))}
+                    </div>
                 </div>
-            </section>
-
-            {/* CTA */}
-            <section className="section-padding bg-gradient-primary text-white">
-                <div className="container-custom text-center">
-                    <h2 className="text-4xl font-bold mb-6">
-                        Ready to Experience These Features?
-                    </h2>
-                    <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-                        Start your free trial and see how BulkWaMsg can transform your WhatsApp marketing.
-                    </p>
-                    <Link href="/signup" className="bg-white text-trust-blue font-semibold px-8 py-4 rounded-lg hover:shadow-xl transition-all inline-flex items-center gap-2">
-                        Start Free Trial
-                        <ArrowRight className="w-5 h-5" />
-                    </Link>
-                </div>
-            </section>
-
-            {/* Back to Home */}
-            <section className="section-padding bg-white text-center">
-                <Link href="/" className="text-trust-blue hover:underline font-semibold inline-flex items-center gap-2">
-                    ← Back to Home
-                </Link>
             </section>
 
             <Footer />
         </main>
     );
 }
-
-const coreFeatures = [
-    {
-        icon: MessageSquare,
-        title: 'Bulk Message Sending',
-        description: 'Send thousands of WhatsApp messages instantly. Paste unlimited numbers, import from CSV, or sync from your contacts.',
-        link: '/features/bulk-messaging',
-    },
-    {
-        icon: Calendar,
-        title: 'Smart Scheduling',
-        description: 'Schedule campaigns for optimal send times. Create sequences, recurring messages, and automated follow-ups.',
-    },
-    {
-        icon: Users,
-        title: 'Contact Management',
-        description: 'Organize contacts with tags, segments, and custom fields. Excel-style table for easy bulk editing.',
-    },
-    {
-        icon: BarChart3,
-        title: 'Campaign Analytics',
-        description: 'Track delivery rates, read receipts, and response rates. Export detailed reports in PDF or Excel.',
-    },
-    {
-        icon: Shield,
-        title: 'Anti-Spam Protection',
-        description: 'Built-in safety features to prevent bans. Smart delays, message rotation, and account health monitoring.',
-    },
-    {
-        icon: Zap,
-        title: 'Lightning Fast',
-        description: 'Send messages at scale without compromising speed. Optimized for high-volume campaigns.',
-    },
-];
-
-const highlights = [
-    {
-        icon: MessageSquare,
-        badge: 'Most Popular',
-        title: 'Unlimited Number Input',
-        description: 'Never worry about contact limits again. Our advanced system handles unlimited phone numbers with automatic validation and formatting.',
-        points: [
-            'Paste unlimited numbers directly',
-            'Import from CSV, Excel, or Google Sheets',
-            'Automatic duplicate removal',
-            'International number formatting',
-            'Invalid number detection',
-        ],
-    },
-    {
-        icon: Calendar,
-        badge: 'Time Saver',
-        title: 'Advanced Campaign Scheduling',
-        description: 'Set it and forget it. Schedule your campaigns to send at the perfect time, even when you\'re sleeping.',
-        points: [
-            'Schedule for specific dates and times',
-            'Recurring campaigns (daily, weekly, monthly)',
-            'Timezone-aware scheduling',
-            'Automated follow-up sequences',
-            'Campaign queue management',
-        ],
-    },
-    {
-        icon: BarChart3,
-        badge: 'Data Driven',
-        title: 'Comprehensive Analytics',
-        description: 'Make informed decisions with detailed insights into your campaign performance and customer engagement.',
-        points: [
-            'Real-time delivery tracking',
-            'Read receipt monitoring',
-            'Response rate analytics',
-            'Export reports in PDF/Excel',
-            'Historical data comparison',
-        ],
-    },
-];

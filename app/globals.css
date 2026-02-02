@@ -5,21 +5,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-  /* Brand Colors */
-  --trust-blue: #0066FF;
-  --success-green: #25D366;
-  --premium-indigo: #6366F1;
+  /* Brand Colors - Premium Indigo / Purple Palette */
+  --trust-blue: #4F46E5;
+  --premium-indigo: #8B5CF6;
+  --success-green: #10B981;
   --dark-navy: #0F172A;
-  --slate-gray: #64748B;
+  --slate-gray: #475569;
   --soft-gray: #F8FAFC;
   --warning-amber: #F59E0B;
   --error-red: #EF4444;
   --info-cyan: #06B6D4;
-  
+
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #0066FF 0%, #6366F1 100%);
-  --gradient-success: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
-  --gradient-warm: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%);
+  --gradient-primary: linear-gradient(135deg, #4F46E5 0%, #8B5CF6 100%);
+  --gradient-success: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  --gradient-warm: linear-gradient(135deg, #F43F5E 0%, #FB923C 100%);
+  --gradient-dark: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 
 * {
@@ -78,14 +85,14 @@ button {
   .text-balance {
     text-wrap: balance;
   }
-  
+
   .gradient-text {
     background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  
+
   .glass {
     background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(10px);
@@ -98,27 +105,27 @@ button {
   .btn-primary {
     @apply bg-gradient-primary text-white font-semibold px-6 py-3 rounded-lg shadow-primary hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200;
   }
-  
+
   .btn-secondary {
     @apply bg-transparent text-trust-blue border-2 border-trust-blue font-semibold px-6 py-3 rounded-lg hover:bg-trust-blue hover:text-white transition-all duration-200;
   }
-  
+
   .btn-success {
     @apply bg-success-green text-white font-semibold px-6 py-3 rounded-lg shadow-success hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200;
   }
-  
+
   .card {
     @apply bg-white rounded-lg p-6 shadow-soft border border-gray-100 hover:shadow-lg transition-shadow duration-200;
   }
-  
+
   .input-field {
     @apply w-full px-4 py-2.5 border border-gray-300 rounded-md focus:border-trust-blue focus:ring-2 focus:ring-trust-blue/20 outline-none transition-all duration-200;
   }
-  
+
   .section-padding {
     @apply py-16 md:py-24 px-4 md:px-8;
   }
-  
+
   .container-custom {
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }

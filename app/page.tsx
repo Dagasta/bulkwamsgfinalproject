@@ -1,129 +1,147 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, MessageSquare, Users, Calendar, BarChart3, Shield, Zap, CheckCircle2, Star } from 'lucide-react';
+import { ArrowRight, MessageSquare, Users, Calendar, BarChart3, Shield, Zap, CheckCircle2, Star, Send, Upload } from 'lucide-react';
+import Footer from '@/components/ui/Footer';
 
 export default function HomePage() {
     return (
-        <main className="min-h-screen">
-            {/* Navigation */}
-            <nav className="border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-50">
+        <main className="min-h-screen bg-white">
+            {/* Premium Navigation */}
+            <nav className="glass sticky top-0 z-[100] border-b border-slate-100">
                 <div className="container-custom">
-                    <div className="flex items-center justify-between h-16">
-                        <div className="flex items-center gap-2">
-                            <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
-                                <MessageSquare className="w-6 h-6 text-white" />
+                    <div className="flex items-center justify-between h-20">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-gradient-primary rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                                <MessageSquare className="w-7 h-7 text-white" />
                             </div>
-                            <span className="text-xl font-bold text-dark-navy">BulkWaMsg</span>
+                            <span className="text-2xl font-black text-dark-navy tracking-tighter">BulkWaMsg</span>
                         </div>
 
-                        <div className="hidden md:flex items-center gap-8">
-                            <Link href="/features" className="text-slate-gray hover:text-trust-blue font-medium transition-colors">
-                                Features
-                            </Link>
-                            <Link href="/use-cases" className="text-slate-gray hover:text-trust-blue font-medium transition-colors">
-                                Use Cases
-                            </Link>
-                            <Link href="/pricing" className="text-slate-gray hover:text-trust-blue font-medium transition-colors">
-                                Pricing
-                            </Link>
-                            <Link href="/help" className="text-slate-gray hover:text-trust-blue font-medium transition-colors">
-                                Help
-                            </Link>
+                        <div className="hidden md:flex items-center gap-10">
+                            <Link href="/features" className="text-sm font-bold text-slate-gray hover:text-trust-blue transition-all">Features</Link>
+                            <Link href="/pricing" className="text-sm font-bold text-slate-gray hover:text-trust-blue transition-all">Pricing</Link>
+                            <Link href="/help" className="text-sm font-bold text-slate-gray hover:text-trust-blue transition-all">Support</Link>
                         </div>
 
                         <div className="flex items-center gap-4">
-                            <Link href="/login" className="text-trust-blue font-semibold hover:text-premium-indigo transition-colors">
-                                Sign In
-                            </Link>
-                            <Link href="/signup" className="btn-primary">
-                                Start Free Trial
+                            <Link href="/login" className="text-sm font-bold text-dark-navy px-6 py-2.5 hover:bg-slate-50 rounded-xl transition-all">Sign In</Link>
+                            <Link href="/signup" className="btn-primary shadow-xl shadow-trust-blue/20">
+                                Get PRO Access
                             </Link>
                         </div>
                     </div>
                 </div>
             </nav>
 
-            {/* Hero Section */}
-            <section className="section-padding bg-gradient-to-br from-soft-gray via-white to-blue-50">
+            {/* Hero Section - The "WOW" Factor */}
+            <section className="relative pt-20 pb-32 overflow-hidden">
+                {/* Background Decorations */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 bg-[radial-gradient(circle_at_top_right,#EEF2FF_0%,transparent_50%),radial-gradient(circle_at_bottom_left,#F5F3FF_0%,transparent_50%)]"></div>
+                <div className="absolute top-40 right-10 w-64 h-64 bg-indigo-100/50 rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute bottom-20 left-10 w-96 h-96 bg-purple-100/50 rounded-full blur-3xl animate-pulse"></div>
+
                 <div className="container-custom">
-                    <div className="grid lg:grid-cols-2 gap-12 items-center">
-                        <div className="space-y-8 animate-fade-in">
-                            <div className="inline-flex items-center gap-2 bg-blue-50 text-trust-blue px-4 py-2 rounded-full text-sm font-medium">
-                                <Zap className="w-4 h-4" />
-                                <span>Trusted by 10,000+ businesses worldwide</span>
-                            </div>
-
-                            <h1 className="text-5xl md:text-6xl font-bold text-dark-navy leading-tight">
-                                Send Bulk WhatsApp Messages That Actually{' '}
-                                <span className="gradient-text">Get Read</span>
-                            </h1>
-
-                            <p className="text-xl text-slate-gray leading-relaxed">
-                                Reach thousands of customers instantly with the #1 WhatsApp marketing platform.
-                                Schedule campaigns, manage contacts, and track results—all in one powerful dashboard.
-                            </p>
-
-                            <div className="flex flex-col sm:flex-row gap-4">
-                                <Link href="/signup" className="btn-primary inline-flex items-center justify-center gap-2 text-lg">
-                                    Start Free Trial
-                                    <ArrowRight className="w-5 h-5" />
-                                </Link>
-                                <Link href="/demo" className="btn-secondary inline-flex items-center justify-center gap-2 text-lg">
-                                    Watch Demo
-                                </Link>
-                            </div>
-
-                            <div className="flex items-center gap-8 pt-4">
-                                <div>
-                                    <div className="flex items-center gap-1 mb-1">
-                                        {[1, 2, 3, 4, 5].map((i) => (
-                                            <Star key={i} className="w-5 h-5 fill-warning-amber text-warning-amber" />
-                                        ))}
-                                    </div>
-                                    <p className="text-sm text-slate-gray">4.9/5 from 2,000+ reviews</p>
-                                </div>
-                                <div className="h-12 w-px bg-gray-200" />
-                                <div>
-                                    <p className="text-2xl font-bold text-dark-navy">50M+</p>
-                                    <p className="text-sm text-slate-gray">Messages sent</p>
-                                </div>
-                            </div>
+                    <div className="text-center max-w-4xl mx-auto space-y-10">
+                        <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 text-indigo-700 px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest animate-fade-in shadow-sm">
+                            <Zap className="w-4 h-4 text-warning-amber fill-warning-amber" />
+                            <span>v2.0 Now Live - Safer & Faster</span>
                         </div>
 
-                        <div className="relative animate-slide-up">
-                            <div className="card p-8 shadow-xl">
-                                <div className="space-y-6">
+                        <h1 className="text-6xl md:text-8xl font-black text-dark-navy leading-[1.05] tracking-tight animate-slide-up">
+                            Reach Thousands <br />
+                            <span className="gradient-text">In One Click.</span>
+                        </h1>
+
+                        <p className="text-xl md:text-2xl text-slate-gray leading-relaxed max-w-2xl mx-auto font-medium opacity-90">
+                            The world's most powerful Bulk WhatsApp platform for modern marketing. 100% Secure. Unlimited Scale. Professional Results.
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row gap-6 justify-center pt-6 animate-slide-up delay-100">
+                            <Link href="/signup" className="btn-primary px-10 py-5 text-xl flex items-center gap-3 shadow-[0_20px_40px_-10px_rgba(79,70,229,0.3)] hover:scale-105 active:scale-95">
+                                Start Campaigning Now
+                                <ArrowRight className="w-6 h-6" />
+                            </Link>
+                            <Link href="/demo" className="bg-white text-dark-navy border-2 border-slate-100 px-10 py-5 text-xl rounded-2xl font-bold hover:bg-slate-50 transition-all shadow-sm hover:shadow-md">
+                                Watch Live Demo
+                            </Link>
+                        </div>
+
+                        {/* Social Proof */}
+                        <div className="pt-12 flex flex-col items-center gap-6 animate-fade-in delay-200">
+                            <div className="flex -space-x-4">
+                                {[1, 2, 3, 4, 5].map((i) => (
+                                    <div key={i} className="w-12 h-12 rounded-full border-4 border-white overflow-hidden bg-slate-100">
+                                        <div className="w-full h-full bg-gradient-primary opacity-20"></div>
+                                    </div>
+                                ))}
+                                <div className="w-12 h-12 rounded-full border-4 border-white bg-dark-navy text-white text-[10px] flex items-center justify-center font-bold">+10k</div>
+                            </div>
+                            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">
+                                Trusted by market leaders globally
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Dashboard Preview Section */}
+            <section className="container-custom pb-32">
+                <div className="relative group">
+                    <div className="absolute inset-0 bg-gradient-primary rounded-[40px] blur-2xl opacity-10 group-hover:opacity-20 transition-opacity"></div>
+                    <div className="bg-white rounded-[40px] border border-slate-100 shadow-2xl p-4 md:p-8 relative overflow-hidden">
+                        <div className="bg-slate-50 rounded-[32px] p-6 md:p-12 border border-slate-100 shadow-inner">
+                            <div className="grid lg:grid-cols-3 gap-8">
+                                <div className="lg:col-span-2 space-y-8">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="text-lg font-semibold">Campaign Dashboard</h3>
-                                        <span className="bg-success-green/10 text-success-green px-3 py-1 rounded-full text-sm font-medium">
-                                            Active
-                                        </span>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-blue-50 p-4 rounded-lg">
-                                            <p className="text-sm text-slate-gray mb-1">Messages Sent</p>
-                                            <p className="text-2xl font-bold text-trust-blue">12,847</p>
+                                        <div className="space-y-1">
+                                            <h3 className="text-2xl font-black text-dark-navy">Campaign Growth</h3>
+                                            <p className="text-sm font-bold text-slate-400">Real-time performance metrics</p>
                                         </div>
-                                        <div className="bg-green-50 p-4 rounded-lg">
-                                            <p className="text-sm text-slate-gray mb-1">Delivery Rate</p>
-                                            <p className="text-2xl font-bold text-success-green">98.5%</p>
+                                        <div className="flex gap-2">
+                                            <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                                            <div className="w-3 h-3 rounded-full bg-amber-400"></div>
+                                            <div className="w-3 h-3 rounded-full bg-green-400"></div>
                                         </div>
                                     </div>
-
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-3">
-                                            <CheckCircle2 className="w-5 h-5 text-success-green" />
-                                            <span className="text-sm">1,247 contacts imported from CSV</span>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {[
+                                            { label: 'Sent', val: '1.2M', color: 'text-trust-blue' },
+                                            { label: 'Read', val: '98%', color: 'text-success-green' },
+                                            { label: 'Bounced', val: '0.2%', color: 'text-error-red' },
+                                            { label: 'Score', val: 'Elite', color: 'text-premium-indigo' },
+                                        ].map((stat, i) => (
+                                            <div key={i} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-50">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{stat.label}</p>
+                                                <p className={`text-2xl font-black ${stat.color} tracking-tight`}>{stat.val}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="h-48 bg-white/50 rounded-3xl border border-slate-50 border-dashed flex items-center justify-center">
+                                        <p className="text-slate-300 font-bold italic tracking-tighter">Live Chart Analytics visualization...</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-6">
+                                    <div className="bg-dark-navy text-white rounded-[32px] p-8 h-full shadow-2xl">
+                                        <h4 className="text-xl font-bold mb-6 flex items-center gap-2">
+                                            <Shield className="w-6 h-6 text-success-green" />
+                                            Safety Protocol
+                                        </h4>
+                                        <div className="space-y-4">
+                                            {[
+                                                'Dynamic Spintax Support',
+                                                'Variable Send Delays',
+                                                'Account Health Guard',
+                                                'Auto-Rotate Content'
+                                            ].map((item, i) => (
+                                                <div key={i} className="flex items-center gap-3 bg-white/5 p-4 rounded-2xl">
+                                                    <CheckCircle2 className="w-5 h-5 text-success-green" />
+                                                    <span className="text-sm font-medium opacity-80">{item}</span>
+                                                </div>
+                                            ))}
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <CheckCircle2 className="w-5 h-5 text-success-green" />
-                                            <span className="text-sm">Campaign scheduled for 9:00 AM</span>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <CheckCircle2 className="w-5 h-5 text-success-green" />
-                                            <span className="text-sm">Analytics tracking enabled</span>
-                                        </div>
+                                        <button className="w-full mt-8 py-4 bg-trust-blue rounded-2xl font-bold text-sm hover:bg-trust-blue/90 transition-all">
+                                            Enhanced Mode Active
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -132,136 +150,86 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* Features Section */}
-            <section className="section-padding bg-white">
+            {/* Features Masterpiece */}
+            <section className="bg-slate-50 py-32">
                 <div className="container-custom">
-                    <div className="text-center mb-16">
-                        <h2 className="text-4xl md:text-5xl font-bold text-dark-navy mb-4">
-                            Everything You Need to Dominate WhatsApp Marketing
-                        </h2>
-                        <p className="text-xl text-slate-gray max-w-3xl mx-auto">
-                            Powerful features designed to help you reach more customers, save time, and grow your business.
-                        </p>
+                    <div className="text-center mb-24 max-w-3xl mx-auto">
+                        <h2 className="text-4xl md:text-6xl font-black text-dark-navy mb-6 tracking-tight">The Arsenal of <br /> <span className="gradient-text">Success</span></h2>
+                        <p className="text-xl text-slate-gray font-medium">Tools built for scale, speed, and absolute reliability.</p>
                     </div>
 
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
                         {features.map((feature, index) => (
-                            <div key={index} className="card group hover:border-trust-blue cursor-pointer">
-                                <div className="w-12 h-12 bg-gradient-primary rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                                    <feature.icon className="w-6 h-6 text-white" />
+                            <div key={index} className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 hover:shadow-2xl hover:-translate-y-2 transition-all group">
+                                <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center mb-8 group-hover:bg-gradient-primary group-hover:scale-110 transition-all shadow-inner">
+                                    <feature.icon className="w-8 h-8 text-trust-blue group-hover:text-white transition-colors" />
                                 </div>
-                                <h3 className="text-xl font-semibold text-dark-navy mb-2">{feature.title}</h3>
-                                <p className="text-slate-gray leading-relaxed">{feature.description}</p>
+                                <h3 className="text-2xl font-black text-dark-navy mb-4">{feature.title}</h3>
+                                <p className="text-slate-gray leading-relaxed font-medium mb-8">{feature.description}</p>
+                                <div className="h-1 w-12 bg-slate-100 rounded-full group-hover:w-full group-hover:bg-trust-blue transition-all duration-500"></div>
                             </div>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* CTA Section */}
-            <section className="section-padding bg-gradient-primary text-white">
-                <div className="container-custom text-center">
-                    <h2 className="text-4xl md:text-5xl font-bold mb-6">
-                        Ready to Transform Your WhatsApp Marketing?
-                    </h2>
-                    <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-                        Join 10,000+ businesses already growing with BulkWaMsg. Start your free trial today—no credit card required.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Link href="/signup" className="bg-white text-trust-blue font-semibold px-8 py-4 rounded-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200 inline-flex items-center justify-center gap-2">
-                            Start Free Trial
-                            <ArrowRight className="w-5 h-5" />
-                        </Link>
-                        <Link href="/contact" className="border-2 border-white text-white font-semibold px-8 py-4 rounded-lg hover:bg-white hover:text-trust-blue transition-all duration-200">
-                            Contact Sales
-                        </Link>
+            {/* Final CTA */}
+            <section className="container-custom py-32">
+                <div className="bg-dark-navy rounded-[60px] p-12 md:p-24 text-center relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-primary opacity-10"></div>
+                    <div className="absolute -top-24 -right-24 w-96 h-96 bg-trust-blue rounded-full blur-[120px] opacity-20"></div>
+
+                    <div className="relative z-10 space-y-10">
+                        <h2 className="text-5xl md:text-7xl font-black text-white tracking-tight">Ready for Hyper-Growth?</h2>
+                        <p className="text-xl md:text-2xl text-slate-400 font-medium max-w-2xl mx-auto">
+                            Join 10,000+ top marketers using BulkWaMsg to dominate their niche. No hidden fees. Start today.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-6 justify-center pt-4">
+                            <Link href="/signup" className="bg-white text-dark-navy px-12 py-6 rounded-3xl font-black text-2xl hover:bg-slate-100 transition-all shadow-2xl hover:scale-105 active:scale-95">
+                                Get PRO Access
+                            </Link>
+                            <Link href="/pricing" className="border-2 border-white/20 text-white px-12 py-6 rounded-3xl font-black text-2xl hover:bg-white/5 transition-all">
+                                View Pricing
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            {/* Footer */}
-            <footer className="bg-dark-navy text-white py-12">
-                <div className="container-custom">
-                    <div className="grid md:grid-cols-4 gap-8">
-                        <div>
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-                                    <MessageSquare className="w-5 h-5 text-white" />
-                                </div>
-                                <span className="text-lg font-bold">BulkWaMsg</span>
-                            </div>
-                            <p className="text-gray-400 text-sm">
-                                The #1 bulk WhatsApp messaging platform for businesses.
-                            </p>
-                        </div>
-
-                        <div>
-                            <h4 className="font-semibold mb-4">Product</h4>
-                            <ul className="space-y-2 text-sm text-gray-400">
-                                <li><Link href="/features" className="hover:text-white transition-colors">Features</Link></li>
-                                <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
-                                <li><Link href="/use-cases" className="hover:text-white transition-colors">Use Cases</Link></li>
-                            </ul>
-                        </div>
-
-                        <div>
-                            <h4 className="font-semibold mb-4">Resources</h4>
-                            <ul className="space-y-2 text-sm text-gray-400">
-                                <li><Link href="/help" className="hover:text-white transition-colors">Help Center</Link></li>
-                                <li><Link href="/tools" className="hover:text-white transition-colors">Free Tools</Link></li>
-                                <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
-                            </ul>
-                        </div>
-
-                        <div>
-                            <h4 className="font-semibold mb-4">Company</h4>
-                            <ul className="space-y-2 text-sm text-gray-400">
-                                <li><Link href="/about" className="hover:text-white transition-colors">About</Link></li>
-                                <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
-                                <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link></li>
-                                <li><Link href="/terms" className="hover:text-white transition-colors">Terms</Link></li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
-                        <p>&copy; 2026 BulkWaMsg. All rights reserved.</p>
-                    </div>
-                </div>
-            </footer>
+            <Footer />
         </main>
     );
 }
 
 const features = [
     {
-        icon: MessageSquare,
-        title: 'Bulk Message Sending',
-        description: 'Send thousands of WhatsApp messages instantly. Paste unlimited numbers, import from CSV, or sync from your contacts.',
-    },
-    {
-        icon: Calendar,
-        title: 'Smart Scheduling',
-        description: 'Schedule campaigns for optimal send times. Create sequences, recurring messages, and automated follow-ups.',
-    },
-    {
-        icon: Users,
-        title: 'Contact Management',
-        description: 'Organize contacts with tags, segments, and custom fields. Excel-style table for easy bulk editing.',
-    },
-    {
-        icon: BarChart3,
-        title: 'Campaign Analytics',
-        description: 'Track delivery rates, read receipts, and response rates. Export detailed reports in PDF or Excel.',
+        icon: Send,
+        title: 'Sonic Broadcast',
+        description: 'Send thousands of messages in seconds. Optimized architecture ensures 100% delivery rate with ultra-low latency.',
     },
     {
         icon: Shield,
-        title: 'Anti-Spam Protection',
-        description: 'Built-in safety features to prevent bans. Smart delays, message rotation, and account health monitoring.',
+        title: 'Ghost Mode Safety',
+        description: 'Our proprietary Ghost Mode rotates content and uses human-mimicry delays to keep your account safe from bans.',
+    },
+    {
+        icon: Upload,
+        title: 'HD Multi-Media',
+        description: 'Attach 4K images, documents, and videos. Your media is delivered in high-definition without compression.',
+    },
+    {
+        icon: Users,
+        title: 'Niche Segmentation',
+        description: 'Target your audience with laser precision. Categorize and tag contacts to send highly relevant content.',
+    },
+    {
+        icon: BarChart3,
+        title: 'Insight Analytics',
+        description: 'Real-time dashboards showing delivery, read, and conversion rates. Data-driven marketing has never been easier.',
     },
     {
         icon: Zap,
-        title: 'Lightning Fast',
-        description: 'Send messages at scale without compromising speed. Optimized for high-volume campaigns.',
+        title: 'Instant Setup',
+        description: 'No complex API registration. Link your existing device in 10 seconds and start sending immediately.',
     },
 ];

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { CheckCircle2, AlertCircle, Loader2, Wifi, WifiOff } from 'lucide-react';
 
 export default function WhatsAppStatus() {
@@ -44,12 +45,12 @@ export default function WhatsAppStatus() {
     }
 
     return (
-        <a
-            href="/whatsapp-connect"
+        <Link
+            href="/dashboard/whatsapp-connect"
             className="flex items-center gap-2 px-3 py-2 bg-warning-amber/10 rounded-lg hover:bg-warning-amber/20 transition-colors"
         >
             <WifiOff className="w-4 h-4 text-warning-amber" />
             <span className="text-sm font-medium text-warning-amber">Connect WhatsApp</span>
-        </a>
+        </Link>
     );
 }

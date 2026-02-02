@@ -9,20 +9,46 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-    title: "BulkWaMsg - Bulk WhatsApp Messaging Platform",
-    description: "Send bulk WhatsApp messages instantly. Reach thousands of customers with our powerful WhatsApp marketing platform. Schedule campaigns, manage contacts, and track analytics.",
-    keywords: ["bulk whatsapp sender", "whatsapp bulk message", "whatsapp marketing", "bulk messaging platform", "whatsapp automation"],
-    authors: [{ name: "BulkWaMsg" }],
+    title: "BulkWaMsg | #1 Bulk WhatsApp Marketing Software & Automation",
+    description: "Blast WhatsApp messages to thousands of customers instantly. The most powerful, free WhatsApp bulk sender for business marketing, notifications, and automation. No API costs, 100% secure.",
+    keywords: [
+        "bulk whatsapp sender",
+        "whatsapp bulk message",
+        "whatsapp marketing software",
+        "bulk whatsapp messaging platform",
+        "whatsapp automation tool",
+        "free whatsapp marketing",
+        "whatsapp blast software",
+        "send bulk whatsapp messages",
+        "whatsapp marketing api free",
+        "best bulk whatsapp sender 2025"
+    ],
+    authors: [{ name: "BulkWaMsg Team" }],
+    viewport: "width=device-width, initial-scale=1, maximum-scale=1",
     openGraph: {
-        title: "BulkWaMsg - Bulk WhatsApp Messaging Platform",
-        description: "Send bulk WhatsApp messages instantly. Reach thousands of customers with our powerful platform.",
+        title: "BulkWaMsg | #1 Bulk WhatsApp Marketing Software",
+        description: "Scale your business with automated WhatsApp marketing. Send thousands of messages for free.",
+        url: "https://bulkwamsg.com",
+        siteName: "BulkWaMsg",
+        images: [
+            {
+                url: "/og-image.png",
+                width: 1200,
+                height: 630,
+                alt: "BulkWaMsg Platform",
+            },
+        ],
         type: "website",
         locale: "en_US",
     },
     twitter: {
         card: "summary_large_image",
-        title: "BulkWaMsg - Bulk WhatsApp Messaging Platform",
-        description: "Send bulk WhatsApp messages instantly. Reach thousands of customers with our powerful platform.",
+        title: "BulkWaMsg | Bulk WhatsApp Marketing",
+        description: "The ultimate tool for WhatsApp bulk messaging. Free, fast, and easy to use.",
+        images: ["/og-image.png"],
+    },
+    alternates: {
+        canonical: "https://bulkwamsg.com",
     },
     robots: {
         index: true,
@@ -35,9 +61,6 @@ export const metadata: Metadata = {
             'max-snippet': -1,
         },
     },
-    verification: {
-        google: "your-google-verification-code",
-    },
 };
 
 export default function RootLayout({
@@ -47,6 +70,30 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en">
+            <head>
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify({
+                            "@context": "https://schema.org",
+                            "@type": "SoftwareApplication",
+                            "name": "BulkWaMsg",
+                            "operatingSystem": "Windows, macOS, Linux",
+                            "applicationCategory": "BusinessApplication",
+                            "offers": {
+                                "@type": "Offer",
+                                "price": "0.00",
+                                "priceCurrency": "USD"
+                            },
+                            "aggregateRating": {
+                                "@type": "AggregateRating",
+                                "ratingValue": "4.9",
+                                "ratingCount": "1250"
+                            }
+                        })
+                    }}
+                />
+            </head>
             <body className={inter.className}>{children}</body>
         </html>
     );
