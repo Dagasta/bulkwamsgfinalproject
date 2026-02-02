@@ -100,7 +100,8 @@ export default function PricingPage() {
                 setSuccess(true);
                 setTimeout(() => router.push('/dashboard'), 2000);
             } else {
-                alert('Payment captured but could not update profile. Please contact support.');
+                const errorMsg = result.message || result.error || 'Check console for details';
+                alert('Payment captured but could not update profile: ' + errorMsg);
                 console.error('Capture result error:', result);
             }
         } catch (error) {
