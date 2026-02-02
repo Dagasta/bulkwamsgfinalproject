@@ -57,17 +57,29 @@ export async function POST(req: Request) {
         }
 
         if (captureData.status === 'COMPLETED') {
+            console.log(`[PayPal Capture] Payment completed for user: ${user.id}`);
+
             // 3. Update User Plan to Pro in Supabase
+            // Use upsert to handle cases where the profile record might not exist yet
             const { error: updateError } = await supabase
                 .from('profiles')
-                .update({ plan: 'pro' })
-                .eq('id', user.id);
+                .upsert({
+                    id: user.id,
+                    email: user.email,
+                    plan: 'pro',
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'id' });
 
             if (updateError) {
-                console.error('Supabase Update Error:', updateError);
-                return NextResponse.json({ error: 'Payment successful but profile update failed' }, { status: 500 });
+                console.error('[Supabase Update Error] Failed to upgrade account:', updateError);
+                return NextResponse.json({
+                    error: 'Payment successful but profile upgrade failed',
+                    message: updateError.message,
+                    details: updateError
+                }, { status: 500 });
             }
 
+            console.log('[PayPal Capture] Profile successfully upgraded to PRO');
             return NextResponse.json({ success: true, data: captureData });
         }
 
