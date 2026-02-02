@@ -23,6 +23,11 @@ export async function POST(req: Request) {
         const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
         const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
 
+        if (!clientId || !clientSecret) {
+            console.error('[PayPal API] Missing credentials in environment');
+            return NextResponse.json({ error: 'System Error: PayPal credentials not configured on server' }, { status: 500 });
+        }
+
         // 1. Get Access Token
         const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
         const tokenResponse = await fetch(`${endpoint}/v1/oauth2/token`, {

@@ -66,7 +66,8 @@ export default function PricingPage() {
                 return order.id;
             } else {
                 console.error('PayPal Order Error Details:', order);
-                alert('PayPal Order Error: ' + (order.message || 'Check console for details'));
+                const errorMsg = order.error || order.message || 'Check console for details';
+                alert('PayPal Order Error: ' + errorMsg);
             }
         } catch (error) {
             console.error('Create Order Request Failed:', error);
