@@ -8,7 +8,15 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(req: Request) {
     try {
-        const { priceId } = await req.json();
+        const { planId } = await req.json();
+
+        const priceId = planId === 'pro-monthly'
+            ? process.env.STRIPE_MONTHLY_PRICE_ID
+            : process.env.STRIPE_YEARLY_PRICE_ID;
+
+        if (!priceId) {
+            return NextResponse.json({ error: 'Invalid plan selected' }, { status: 400 });
+        }
 
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();

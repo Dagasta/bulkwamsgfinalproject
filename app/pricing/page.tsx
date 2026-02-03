@@ -135,14 +135,10 @@ function PricingContent() {
                                         onClick={async () => {
                                             setLoading(plan.id);
                                             try {
-                                                const priceId = plan.id === 'pro-monthly'
-                                                    ? process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID
-                                                    : process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID;
-
                                                 const response = await fetch('/api/stripe/checkout', {
                                                     method: 'POST',
                                                     headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ priceId }),
+                                                    body: JSON.stringify({ planId: plan.id }),
                                                 });
                                                 const { url, error } = await response.json();
                                                 if (url) {
