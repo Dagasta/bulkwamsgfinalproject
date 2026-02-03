@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Check, Zap, Shield, Crown, ArrowRight, Loader2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -39,7 +39,7 @@ const plans = [
     }
 ];
 
-export default function PricingPage() {
+function PricingContent() {
     const [loading, setLoading] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [user, setUser] = useState<any>(null);
@@ -200,5 +200,17 @@ export default function PricingPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function PricingPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="w-12 h-12 text-trust-blue animate-spin" />
+            </div>
+        }>
+            <PricingContent />
+        </Suspense>
     );
 }
