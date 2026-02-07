@@ -13,16 +13,29 @@ if (!globalForBaileys.cachedVersion) globalForBaileys.cachedVersion = null;
 export const activeConnections = globalForBaileys.activeConnections;
 const memoryLocks = globalForBaileys.memoryLocks;
 
+// --- Cloud-Safe Path Management ---
+const getStorageBase = () => {
+    // On Vercel or cloud environments, we MUST use /tmp as the rest is read-only
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+        return path.join('/tmp', '.baileys_auth');
+    }
+    return path.join(process.cwd(), '.baileys_auth');
+};
+
+const STORAGE_BASE = getStorageBase();
+
 export function debugLog(message: string) {
-    const logPath = path.join(process.cwd(), '_dispatch_debug.log');
+    const logPath = path.join(STORAGE_BASE, 'dispatch.log');
+    if (!fs.existsSync(STORAGE_BASE)) fs.mkdirSync(STORAGE_BASE, { recursive: true });
     const entry = `[${new Date().toISOString()}] ${message}\n`;
     console.log(message);
     try { fs.appendFileSync(logPath, entry); } catch (e) { }
 }
 
 function acquireLock(userId: string): boolean {
-    const lockFile = path.join(process.cwd(), '.baileys_auth', 'locks', `${userId}.lock`);
-    if (!fs.existsSync(path.dirname(lockFile))) fs.mkdirSync(path.dirname(lockFile), { recursive: true });
+    const locksDir = path.join(STORAGE_BASE, 'locks');
+    const lockFile = path.join(locksDir, `${userId}.lock`);
+    if (!fs.existsSync(locksDir)) fs.mkdirSync(locksDir, { recursive: true });
 
     if (fs.existsSync(lockFile)) {
         try {
@@ -33,21 +46,16 @@ function acquireLock(userId: string): boolean {
 
             if (pid === process.pid) return true;
 
-            // Check if process is still alive
+            // Check if process is still alive (if possible)
             try {
                 process.kill(pid, 0);
-                // Process is alive, BUT check if the lock is "Ancient" (older than 2 mins)
-                // If it's ancient, it's likely a ghost handle from a crashed thread.
-                if (Date.now() - timestamp > 120000) {
-                    debugLog(`[Lock] 🚨 BRAKING ANCIENT LOCK: ${userId} (PID ${pid})`);
+                if (Date.now() - timestamp > 60000) { // Reduced to 60s for faster cloud recovery
+                    debugLog(`[Lock] 🚨 BRAKING STALE LOCK: ${userId} (PID ${pid})`);
                     fs.writeFileSync(lockFile, `${process.pid}:${Date.now()}`);
                     return true;
                 }
-                debugLog(`[Lock] 🚨 Active Lock: PID ${pid}. Waiting...`);
                 return false;
             } catch (e) {
-                // Process is dead, take over
-                debugLog(`[Lock] 🔓 Stale lock found (PID ${pid} dead). Taking over.`);
                 fs.writeFileSync(lockFile, `${process.pid}:${Date.now()}`);
                 return true;
             }
@@ -61,11 +69,11 @@ function acquireLock(userId: string): boolean {
 }
 
 function releaseLock(userId: string) {
-    const lockFile = path.join(process.cwd(), '.baileys_auth', 'locks', `${userId}.lock`);
+    const lockFile = path.join(STORAGE_BASE, 'locks', `${userId}.lock`);
     try {
         if (fs.existsSync(lockFile)) {
-            const pid = fs.readFileSync(lockFile, 'utf8').trim();
-            if (pid === process.pid.toString()) {
+            const data = fs.readFileSync(lockFile, 'utf8').trim();
+            if (data.startsWith(process.pid.toString())) {
                 fs.unlinkSync(lockFile);
             }
         }
@@ -144,7 +152,7 @@ export async function connectToWhatsApp(userId: string) {
                 return null;
             }
 
-            const authDir = path.join(process.cwd(), '.baileys_auth', `session-v24-${userId}`);
+            const authDir = path.join(STORAGE_BASE, `session-v24-${userId}`);
             if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
 
             debugLog(`[Baileys-V24] 🔥 High-Performance Initiation: ${userId}`);
@@ -298,13 +306,12 @@ export function disconnectBaileys(userId: string) {
 
     // CRITICAL: Aggressively purge ALL session directories on disk for this user
     try {
-        const baseDir = path.join(process.cwd(), '.baileys_auth');
-        if (fs.existsSync(baseDir)) {
-            const items = fs.readdirSync(baseDir);
+        if (fs.existsSync(STORAGE_BASE)) {
+            const items = fs.readdirSync(STORAGE_BASE);
             for (const item of items) {
                 // If the folder matches the userId pattern (e.g., session-v24-ID), kill it
                 if (item.includes(userId)) {
-                    const fullPath = path.join(baseDir, item);
+                    const fullPath = path.join(STORAGE_BASE, item);
                     try {
                         fs.rmSync(fullPath, { recursive: true, force: true });
                         debugLog(`[Baileys] 🧹 Disk Purge: ${item}`);
@@ -340,7 +347,7 @@ export function isBaileysReady(userId: string): boolean {
 
     // 2. CHECK DISK (Strict Fallback for server restarts ONLY)
     try {
-        const authDir = path.join(process.cwd(), '.baileys_auth', `session-v24-${userId}`);
+        const authDir = path.join(STORAGE_BASE, `session-v24-${userId}`);
         const credsFile = path.join(authDir, 'creds.json');
 
         // If we are currently initializing a NEW session in memory, 
