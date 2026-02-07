@@ -50,8 +50,10 @@ export async function GET() {
             initializing,
             linking,
             timestamp: Date.now(),
+            // Advanced status logic for UI smoothing
+            isSyncing: ready && (!isSocketAlive),
             message: ready
-                ? 'WhatsApp is connected'
+                ? (isSocketAlive ? 'WhatsApp is connected' : 'Synchronizing Neural Link...')
                 : linking
                     ? 'Linking device... Please wait.'
                     : qrCode

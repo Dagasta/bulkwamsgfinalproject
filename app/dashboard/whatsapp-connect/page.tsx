@@ -12,6 +12,7 @@ export default function WhatsAppConnectPage() {
     const [isReady, setIsReady] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [statusMessage, setStatusMessage] = useState<string>('Connecting...');
     const [initTimer, setInitTimer] = useState(0);
 
@@ -39,6 +40,7 @@ export default function WhatsAppConnectPage() {
                 setIsReady(true);
                 setQrCode(null);
                 setIsLoading(false);
+                setIsSyncing(data.isSyncing || false);
             } else if (data.linking) {
                 setStatusMessage('Linking device... Please wait.');
                 setIsLoading(true);
@@ -159,9 +161,18 @@ export default function WhatsAppConnectPage() {
                             <CheckCircle2 className="w-14 h-14" />
                         </div>
                         <h3 className="text-5xl font-black text-dark-navy mb-4 tracking-tighter">Sync Successful</h3>
-                        <p className="text-xl text-slate-500 mb-12 max-w-lg mx-auto italic font-medium">
-                            Your device is now integrated with the BulkWaMsg backbone. High-volume dispatch protocols are active.
-                        </p>
+
+                        {isSyncing ? (
+                            <div className="flex items-center justify-center gap-3 py-6 bg-trust-blue/5 rounded-3xl border border-trust-blue/10 max-w-sm mx-auto mb-8 animate-pulse">
+                                <RefreshCw className="w-5 h-5 text-trust-blue animate-spin-slow" />
+                                <span className="text-sm font-black text-trust-blue uppercase tracking-widest italic">Neural Stabilization Active</span>
+                            </div>
+                        ) : (
+                            <p className="text-xl text-slate-500 mb-12 max-w-lg mx-auto italic font-medium">
+                                Your device is now integrated with the BulkWaMsg backbone. High-volume dispatch protocols are active.
+                            </p>
+                        )}
+
                         <Link
                             href="/dashboard/campaigns/new"
                             className="bg-dark-navy text-white inline-flex items-center gap-4 px-14 py-6 text-xl font-black rounded-[30px] shadow-2xl hover:bg-black hover:shadow-trust-blue/20 hover:-translate-y-2 transition-all"

@@ -337,11 +337,9 @@ export function isBaileysReady(userId: string): boolean {
 
     // 1. Check memory state (Primary Source of Truth)
     if (conn) {
-        const ws = conn.socket?.ws;
-        // PERSISTENT READY: If we have keys (isReady) AND the socket isn't explicitly DEAD (Closed/Closing)
-        // This keeps the UI stable during 515 Restarts
-        if (conn.isReady && ws?.readyState !== 3 && ws?.readyState !== 2) return true;
-
+        // OPTIMISTIC READY: If we have keys (isReady), we are "Ready".
+        // We don't care if the socket is temporarily reconnecting in the background.
+        if (conn.isReady) return true;
         return false;
     }
 
