@@ -12,6 +12,7 @@ if (!globalForBaileys.cachedVersion) globalForBaileys.cachedVersion = null;
 
 export const activeConnections = globalForBaileys.activeConnections;
 const memoryLocks = globalForBaileys.memoryLocks;
+const INSTANCE_ID = Math.random().toString(36).substring(2, 15); // Unique ID for this server instance
 
 // --- Cloud-Safe Path Management ---
 const getStorageBase = () => {
@@ -32,51 +33,53 @@ export function debugLog(message: string) {
     try { fs.appendFileSync(logPath, entry); } catch (e) { }
 }
 
-function acquireLock(userId: string): boolean {
-    const locksDir = path.join(STORAGE_BASE, 'locks');
-    const lockFile = path.join(locksDir, `${userId}.lock`);
-    if (!fs.existsSync(locksDir)) fs.mkdirSync(locksDir, { recursive: true });
+async function acquireGlobalLock(userId: string): Promise<boolean> {
+    try {
+        const { createServiceClient } = await import('@/lib/supabase/service');
+        const adminClient = createServiceClient();
 
-    if (fs.existsSync(lockFile)) {
-        try {
-            const data = fs.readFileSync(lockFile, 'utf8').trim();
-            const [pidString, timestampString] = data.split(':');
-            const pid = parseInt(pidString);
-            const timestamp = parseInt(timestampString);
+        // 1. Check if an active lock exists
+        const { data: profile } = await adminClient.from('profiles').select('whatsapp_lock_id, whatsapp_lock_at').eq('id', userId).single();
 
-            if (pid === process.pid) return true;
+        const now = new Date();
+        const lockId = profile?.whatsapp_lock_id;
+        const lockAt = profile?.whatsapp_lock_at ? new Date(profile.whatsapp_lock_at) : null;
 
-            // Check if process is still alive (if possible)
-            try {
-                process.kill(pid, 0);
-                if (Date.now() - timestamp > 60000) { // Reduced to 60s for faster cloud recovery
-                    debugLog(`[Lock] 🚨 BRAKING STALE LOCK: ${userId} (PID ${pid})`);
-                    fs.writeFileSync(lockFile, `${process.pid}:${Date.now()}`);
-                    return true;
-                }
-                return false;
-            } catch (e) {
-                fs.writeFileSync(lockFile, `${process.pid}:${Date.now()}`);
-                return true;
-            }
-        } catch (e) {
-            fs.writeFileSync(lockFile, `${process.pid}:${Date.now()}`);
-            return true;
+        // If locked by us, we are good
+        if (lockId === INSTANCE_ID) return true;
+
+        // If locked by someone else, check if it's expired (60s)
+        if (lockId && lockAt && (now.getTime() - lockAt.getTime() < 60000)) {
+            return false;
         }
+
+        // 2. Try to seize the lock atomically
+        const { error } = await adminClient.from('profiles').update({
+            whatsapp_lock_id: INSTANCE_ID,
+            whatsapp_lock_at: now.toISOString()
+        }).eq('id', userId);
+
+        if (error) return false;
+
+        debugLog(`[Lock] 🔒 GLOBAL LOCK SEIZED for ${userId} (Instance: ${INSTANCE_ID})`);
+        return true;
+    } catch (e) {
+        return false;
     }
-    fs.writeFileSync(lockFile, `${process.pid}:${Date.now()}`);
-    return true;
 }
 
-function releaseLock(userId: string) {
-    const lockFile = path.join(STORAGE_BASE, 'locks', `${userId}.lock`);
+async function releaseGlobalLock(userId: string) {
     try {
-        if (fs.existsSync(lockFile)) {
-            const data = fs.readFileSync(lockFile, 'utf8').trim();
-            if (data.startsWith(process.pid.toString())) {
-                fs.unlinkSync(lockFile);
-            }
-        }
+        const { createServiceClient } = await import('@/lib/supabase/service');
+        const adminClient = createServiceClient();
+
+        // Only release if we own it
+        await adminClient.from('profiles').update({
+            whatsapp_lock_id: null,
+            whatsapp_lock_at: null
+        }).eq('id', userId).eq('whatsapp_lock_id', INSTANCE_ID);
+
+        debugLog(`[Lock] 🔓 GLOBAL LOCK RELEASED for ${userId}`);
     } catch (e) { }
 }
 
@@ -147,8 +150,11 @@ export async function connectToWhatsApp(userId: string) {
         try {
             if (memoryLocks.has(userId)) return null;
             memoryLocks.add(userId);
-            if (!acquireLock(userId)) {
+
+            // 3. SEIZE GLOBAL LOCK (Critical for Vercel Cluster)
+            if (!(await acquireGlobalLock(userId))) {
                 memoryLocks.delete(userId);
+                debugLog(`[Baileys] 🛑 GLOBAL LOCK DENIED for: ${userId} (Instance Clash)`);
                 return null;
             }
 
@@ -356,7 +362,7 @@ export function disconnectBaileys(userId: string) {
     // Explicitly delete any stale memory associations
     memoryLocks.delete(userId);
     connPromises.delete(userId);
-    releaseLock(userId);
+    releaseGlobalLock(userId);
 
     // CRITICAL: Aggressively purge ALL session directories on disk for this user
     try {

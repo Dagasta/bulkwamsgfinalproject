@@ -65,10 +65,20 @@ export default function WhatsAppConnectPage() {
 
     useEffect(() => {
         checkStatus();
-        // HYPER-POLLING: 1s for ultra-fast response, slowed to 3s only once fully ready
-        const interval = setInterval(checkStatus, isReady ? 3000 : 1000);
+
+        // SMART-THROTTLING: Slow down polling during sensitive phases to prevent Pulse-Storms
+        // - Connected: 5s (Low intensity)
+        // - Linking/QR: 2s (Medium intensity for stability)
+        // - Initializing: 1s (High intensity for speed)
+        const getPollInterval = () => {
+            if (isReady) return 5000;
+            if (qrCode || isSyncing) return 2000;
+            return 1000;
+        };
+
+        const interval = setInterval(checkStatus, getPollInterval());
         return () => clearInterval(interval);
-    }, [checkStatus, isReady]);
+    }, [checkStatus, isReady, qrCode, isSyncing]);
 
     const handleReset = async () => {
         if (!confirm('Are you sure you want to reset the WhatsApp connection?')) return;
