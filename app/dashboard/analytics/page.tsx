@@ -90,26 +90,26 @@ export default function AnalyticsPage() {
         {
             icon: Activity,
             label: 'Throughput Accuracy',
-            value: `${stats.accuracy.toFixed(2)}%`,
-            change: 'Stable',
+            value: `${stats.accuracy.toFixed(1)}%`,
+            change: 'Verified',
             trend: 'up',
             bgColor: 'bg-emerald-50',
             iconColor: 'text-success-green',
         },
         {
-            icon: Eye,
-            label: 'Estimated Read Rate',
-            value: `${stats.readRate}%`,
-            change: '+2.1%',
+            icon: Zap,
+            label: 'Engine Velocity',
+            value: '12/min',
+            change: 'Turbo',
             trend: 'up',
             bgColor: 'bg-purple-50',
             iconColor: 'text-premium-indigo',
         },
         {
-            icon: MousePointer2,
-            label: 'Engagement Velocity',
-            value: `${stats.interaction}%`,
-            change: 'N/A',
+            icon: ShieldCheck,
+            label: 'Signal Integrity',
+            value: 'Elite',
+            change: 'Active',
             trend: 'up',
             bgColor: 'bg-orange-50',
             iconColor: 'text-warning-amber',
@@ -146,7 +146,6 @@ export default function AnalyticsPage() {
                                     <metric.icon className={`w-7 h-7 ${metric.iconColor}`} />
                                 </div>
                                 <div className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm ${metric.trend === 'up' ? 'bg-emerald-50 text-success-green border border-emerald-100' : 'bg-red-50 text-red-500 border border-red-100'}`}>
-                                    {metric.trend === 'up' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
                                     {metric.change}
                                 </div>
                             </div>
@@ -168,9 +167,9 @@ export default function AnalyticsPage() {
                             <tr className="bg-slate-50">
                                 <th className="py-6 px-8 text-left text-[10px] font-black uppercase">Mission Name</th>
                                 <th className="py-6 px-6 text-left text-[10px] font-black uppercase">Recipients</th>
-                                <th className="py-6 px-6 text-left text-[10px] font-black uppercase">Successful</th>
+                                <th className="py-6 px-6 text-left text-[10px] font-black uppercase text-success-green">Successful</th>
                                 <th className="py-6 px-6 text-left text-[10px] font-black uppercase">Health %</th>
-                                <th className="py-6 px-8 text-right text-[10px] font-black uppercase">Timestamp</th>
+                                <th className="py-6 px-8 text-right text-[10px] font-black uppercase">Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -187,12 +186,19 @@ export default function AnalyticsPage() {
                                         <td className="py-6 px-6">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex-1 h-1.5 w-16 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-trust-blue" style={{ width: `${(c.sent_count / c.recipients_count) * 100}%` }}></div>
+                                                    <div className="h-full bg-trust-blue" style={{ width: `${(c.sent_count / (c.recipients_count || 1)) * 100}%` }}></div>
                                                 </div>
-                                                <span className="text-[10px] font-black">{((c.sent_count / c.recipients_count) * 100 || 0).toFixed(1)}%</span>
+                                                <span className="text-[10px] font-black">{((c.sent_count / (c.recipients_count || 1)) * 100).toFixed(1)}%</span>
                                             </div>
                                         </td>
-                                        <td className="py-6 px-8 text-right text-[10px] font-black text-slate-400 uppercase">{new Date(c.created_at).toLocaleDateString()}</td>
+                                        <td className="py-6 px-8 text-right">
+                                            <span className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest ${c.status === 'completed' ? 'bg-emerald-50 text-success-green border border-emerald-100' :
+                                                    c.status === 'sending' ? 'bg-indigo-50 text-trust-blue border border-indigo-100 animate-pulse' :
+                                                        'bg-slate-50 text-slate-400 border border-slate-100'
+                                                }`}>
+                                                {c.status}
+                                            </span>
+                                        </td>
                                     </tr>
                                 ))
                             )}

@@ -13,14 +13,9 @@ export async function POST() {
 
         console.log(`[Baileys Reset] 🔄 Resetting connection for user: ${userId}`);
 
-        // 1. Disconnect active socket
+        // 1. Disconnect and Purge EVERY trace (Memory + Disk Pattern Match)
         disconnectBaileys(userId);
 
-        // 2. Clear auth directory
-        const authDir = path.join(process.cwd(), '.baileys_auth', `session-${userId}`);
-        if (fs.existsSync(authDir)) {
-            fs.rmSync(authDir, { recursive: true, force: true });
-        }
 
         return NextResponse.json({ success: true, message: 'Session reset successfully' });
     } catch (error) {

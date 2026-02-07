@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToWhatsApp, getBaileysQRCode, isBaileysReady, isBaileysInitializing } from '@/lib/whatsapp/baileys-client';
+import { connectToWhatsApp, getBaileysQRCode, isBaileysReady, isBaileysInitializing, isBaileysLinking } from '@/lib/whatsapp/baileys-client';
 import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -11,17 +11,36 @@ export async function GET() {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
-        // Use user ID if authenticated, otherwise use a guest ID
-        const userId = user?.id || 'guest-user';
+        if (!user) {
+            console.log(`[Baileys Status] 🛑 Unauthorized access attempt`);
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
-        console.log(`[Baileys Status] 📨 GET /api/whatsapp/status for user: ${userId}${user ? '' : ' (guest)'}`);
+        const userId = user.id;
+        console.log(`[Baileys Status] 📨 User: ${userId}`);
 
-        // Initialize Baileys WhatsApp client for this user if not already done
-        await connectToWhatsApp(userId);
+        // Initialize Baileys WhatsApp client for this user IF NOT already in memory.
+        const { getBaileysQRCode, isBaileysReady, isBaileysInitializing, isBaileysLinking, connectToWhatsApp } = await import('@/lib/whatsapp/baileys-client');
 
-        const qrCode = getBaileysQRCode(userId);
-        const ready = isBaileysReady(userId);
-        const initializing = isBaileysInitializing(userId);
+        let linking = isBaileysLinking(userId);
+        let initializing = isBaileysInitializing(userId);
+        let ready = isBaileysReady(userId);
+        let qrCode = getBaileysQRCode(userId);
+
+        // --- THE CONNECTION BRIDGE (V24) ---
+        // If we are ready (on disk) OR if everything is idle, trigger a connection.
+        // This ensures the socket is ALIVE if we are linked.
+        const { activeConnections, connPromises } = await import('@/lib/whatsapp/baileys-client');
+        const isSocketAlive = activeConnections.has(userId);
+        const isInitiating = connPromises.has(userId);
+
+        if (!isSocketAlive && !isInitiating && (ready || (!qrCode && !initializing))) {
+            console.log(`[Baileys Status] 🌉 Bridge Trigger: Activating engine for ${userId}`);
+            connectToWhatsApp(userId).catch(err => {
+                console.error(`[Baileys Status] ❌ Bridge error:`, err);
+            });
+            if (!ready) initializing = true;
+        }
 
         console.log(`[Baileys Status] 📊 User ${userId} - Ready: ${ready}, QR: ${!!qrCode}, Init: ${initializing}`);
 
@@ -29,13 +48,16 @@ export async function GET() {
             qrCode,
             ready,
             initializing,
+            linking,
             message: ready
                 ? 'WhatsApp is connected'
-                : qrCode
-                    ? 'Scan QR code to connect'
-                    : initializing
-                        ? 'Initializing WhatsApp...'
-                        : 'Starting connection...'
+                : linking
+                    ? 'Linking device... Please wait.'
+                    : qrCode
+                        ? 'Scan QR code to connect'
+                        : initializing
+                            ? 'Initializing WhatsApp...'
+                            : 'Starting connection...'
         });
     } catch (error) {
         console.error('[Baileys Status] ❌ API error:', error);

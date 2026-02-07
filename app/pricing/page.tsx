@@ -135,14 +135,14 @@ function PricingContent() {
                                         onClick={async () => {
                                             setLoading(plan.id);
                                             try {
-                                                const response = await fetch('/api/stripe/checkout', {
+                                                const response = await fetch('/api/ziina/checkout', {
                                                     method: 'POST',
                                                     headers: { 'Content-Type': 'application/json' },
                                                     body: JSON.stringify({ planId: plan.id }),
                                                 });
-                                                const { url, error } = await response.json();
-                                                if (url) {
-                                                    window.location.href = url;
+                                                const { redirect_url, error } = await response.json();
+                                                if (redirect_url) {
+                                                    window.location.href = redirect_url;
                                                 } else {
                                                     alert(error || 'Failed to start checkout');
                                                 }

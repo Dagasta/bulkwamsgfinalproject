@@ -244,10 +244,10 @@ export default function ContactsPage() {
                         <table className="w-full">
                             <thead>
                                 <tr className="bg-slate-50/50">
-                                    <th className="py-8 px-10 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Identity</th>
+                                    <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Identity</th>
                                     <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Signal Node</th>
+                                    <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Last Template Sensed</th>
                                     <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tags & Matrix</th>
-                                    <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Reputation</th>
                                     <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Logged</th>
                                     <th className="py-8 px-10 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tactical</th>
                                 </tr>
@@ -260,7 +260,7 @@ export default function ContactsPage() {
                                 ) : (
                                     filteredContacts.map((contact, index) => (
                                         <tr key={index} className="group border-b border-slate-50 hover:bg-slate-50/50 transition-all">
-                                            <td className="py-6 px-10">
+                                            <td className="py-6 px-6">
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center font-black text-trust-blue text-sm shadow-sm">
                                                         {(contact.name || 'U').charAt(0)}
@@ -273,6 +273,18 @@ export default function ContactsPage() {
                                             </td>
                                             <td className="py-6 px-6 text-sm font-black text-dark-navy tabular-nums italic">{contact.phone}</td>
                                             <td className="py-6 px-6">
+                                                <div className="max-w-[250px]">
+                                                    <p className="text-[10px] font-black text-dark-navy truncate italic">
+                                                        {contact.last_message || 'N/A: No signals recorded'}
+                                                    </p>
+                                                    {contact.last_sent_at && (
+                                                        <p className="text-[9px] font-black text-slate-300 uppercase mt-1">
+                                                            {new Date(contact.last_sent_at).toLocaleDateString()}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="py-6 px-6">
                                                 <div className="flex flex-wrap gap-2">
                                                     {(contact.tags || []).length > 0 ? (
                                                         contact.tags.map((tag: string, tagIndex: number) => (
@@ -284,15 +296,6 @@ export default function ContactsPage() {
                                                         <span className="text-[10px] font-black text-slate-300 italic">No Tags</span>
                                                     )}
                                                 </div>
-                                            </td>
-                                            <td className="py-6 px-6">
-                                                <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] shadow-sm ${contact.status === 'active'
-                                                    ? 'bg-emerald-50 text-success-green border border-emerald-100'
-                                                    : 'bg-slate-100 text-slate-400 border border-slate-200'
-                                                    }`}>
-                                                    <div className={`w-1.5 h-1.5 rounded-full ${contact.status === 'active' ? 'bg-success-green animate-pulse' : 'bg-slate-300'}`}></div>
-                                                    {contact.status}
-                                                </span>
                                             </td>
                                             <td className="py-6 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{new Date(contact.created_at).toLocaleDateString()}</td>
                                             <td className="py-6 px-10 text-right">

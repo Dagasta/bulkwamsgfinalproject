@@ -42,17 +42,17 @@ export async function POST(request: NextRequest) {
                     ? [{ phone: to as string, name: to as string }]
                     : contacts.map((c: { phone: string; name?: string }) => ({ phone: c.phone, name: c.name || c.phone }));
 
+                const now = new Date().toISOString();
                 const uniqueContacts = contactsToSave.map((c: { phone: string; name: string }) => ({
                     user_id: user.id,
                     phone: c.phone.replace(/\D/g, ''),
                     name: c.name,
                     status: 'active',
-                    tags: ['broadcast-recipient']
+                    tags: ['broadcast-recipient'],
+                    last_message: message || contacts[0]?.message || '',
+                    last_sent_at: now
                 }));
 
-                // Upsert contacts - if your table doesn't have a unique constraint on (user_id, phone), 
-                // this might create duplicates but it's the safest way without knowing the schema exactly.
-                // We attempt to deduplicate by phone for this batch at least.
                 const seenPhones = new Set();
                 const deduplicated = uniqueContacts.filter((c: { user_id: string; phone: string }) => {
                     const id = `${c.user_id}-${c.phone}`;
@@ -81,25 +81,27 @@ export async function POST(request: NextRequest) {
             await sendBaileysMessage(userId, to, message, processedMediaList);
             return NextResponse.json({ success: true, message: 'Message sent successfully' });
         } else if (type === 'bulk') {
-            // Send bulk messages
+            // Send bulk messages (ALWAYS ASYNC via worker to prevent timeouts)
             if (!contacts || !Array.isArray(contacts)) {
-                return NextResponse.json(
-                    { error: 'Contacts array is required' },
-                    { status: 400 }
-                );
+                return NextResponse.json({ error: 'Contacts array is required' }, { status: 400 });
             }
+
+            const { scheduledAt } = body;
+            const isManualSend = !scheduledAt;
+            const targetTime = scheduledAt ? new Date(scheduledAt).toISOString() : new Date().toISOString();
 
             // Fetch user plan status
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('plan')
+                .select('plan, expires_at')
                 .eq('id', user?.id)
                 .single();
 
-            const userPlan = profile?.plan || 'free';
+            const now = new Date();
+            const expiryDate = profile?.expires_at ? new Date(profile.expires_at) : null;
+            const userPlan = (profile?.plan === 'pro' && (!expiryDate || expiryDate > now)) ? 'pro' : 'free';
             const isOwner = user?.email === 'owner@bulkwamsg.com';
 
-            // Limit free users
             if (userPlan !== 'pro' && !isOwner && contacts.length > 10) {
                 return NextResponse.json(
                     { error: 'Limited Access Mode: Free tier is limited to 10 contacts per campaign. Please upgrade to PRO for unlimited reach.' },
@@ -107,52 +109,62 @@ export async function POST(request: NextRequest) {
                 );
             }
 
-            // 1. Create Campaign in Database for Analytics
+            // 1. Create Campaign (Status: queued for manual, scheduled for timed)
             const campaignName = body.name || `Bulk ${new Date().toLocaleDateString()}`;
+            console.log(`[API] Creating campaign: ${campaignName} (Manual: ${isManualSend})`);
+
             const { data: campaign, error: campaignError } = await supabase
                 .from('campaigns')
                 .insert({
                     user_id: user?.id,
                     name: campaignName,
                     message: contacts[0]?.message || '',
-                    status: 'sending',
-                    recipients_count: contacts.length
+                    status: isManualSend ? 'queued' : 'scheduled',
+                    recipients_count: contacts.length,
+                    scheduled_at: targetTime,
+                    timezone: body.timezone || 'UTC',
+                    media: processedMediaList.length > 0 ? processedMediaList : null
                 })
                 .select()
                 .single();
 
-            if (campaignError) console.error('Error creating campaign:', campaignError);
-
-            // 2. Perform Sending
-            const results = await sendBaileysBulkMessages(userId, contacts, processedMediaList);
-
-            // 3. Log results to messages table for precision tracking
-            if (campaign) {
-                const successfulCount = results.filter((r: any) => r.success).length;
-
-                // Update campaign status
-                await supabase
-                    .from('campaigns')
-                    .update({
-                        status: 'completed',
-                        sent_count: successfulCount
-                    })
-                    .eq('id', campaign.id);
-
-                // Batch insert messages
-                const messageLogs = results.map((r: any) => ({
-                    campaign_id: campaign.id,
-                    user_id: user?.id,
-                    phone: r.phone,
-                    message: contacts[0]?.message || '',
-                    status: r.success ? 'sent' : 'failed'
-                }));
-
-                await supabase.from('messages').insert(messageLogs);
+            if (campaignError) {
+                console.error('[API] Campaign Creation Error:', campaignError);
+                throw campaignError;
             }
 
-            return NextResponse.json({ success: true, results });
-        } else {
+            // 2. Insert Message Logs
+            if (campaign) {
+                const messageLogs = contacts.map((c: any) => ({
+                    campaign_id: campaign.id,
+                    user_id: user?.id,
+                    phone: c.phone,
+                    message: c.message || contacts[0]?.message || '',
+                    status: 'pending'
+                }));
+
+                const { error: msgInsertError } = await supabase.from('messages').insert(messageLogs);
+                if (msgInsertError) {
+                    console.error('[API] Message Log Insert Error:', msgInsertError);
+                    throw msgInsertError;
+                }
+            }
+
+            // 3. Fast-Track Kick for Manual Sends
+            if (isManualSend) {
+                const workerUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/worker/process`;
+                fetch(workerUrl).catch(e => console.log('[Worker Kick Failed]:', e));
+            }
+
+            return NextResponse.json({
+                success: true,
+                message: isManualSend
+                    ? `Mission Initiated! Tracking ${contacts.length} signals...`
+                    : `Campaign scheduled for ${new Date(scheduledAt).toLocaleString()}`,
+                status: isManualSend ? 'queued' : 'scheduled'
+            });
+        }
+        else {
             return NextResponse.json(
                 { error: 'Invalid type. Use "single" or "bulk"' },
                 { status: 400 }

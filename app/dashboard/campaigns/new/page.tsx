@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     Send,
     Upload,
@@ -21,9 +21,18 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
+interface CampaignFormData {
+    name: string;
+    message: string;
+    numbers: string;
+    attachments: File[];
+    scheduledAt: string;
+    timezone: string;
+}
+
 export default function NewCampaignPage() {
     const router = useRouter();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     // Status States
     const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(false);
@@ -34,11 +43,13 @@ export default function NewCampaignPage() {
     // Form States
     const [isSending, setIsSending] = useState(false);
     const [sendProgress, setSendProgress] = useState({ sent: 0, total: 0 });
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<CampaignFormData>({
         name: '',
         message: '',
         numbers: '',
         attachments: [] as File[],
+        scheduledAt: '',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
 
     const [errors, setErrors] = useState<string[]>([]);
@@ -56,19 +67,26 @@ export default function NewCampaignPage() {
 
                 const { data: profile } = await supabase
                     .from('profiles')
-                    .select('plan')
+                    .select('plan, expires_at')
                     .eq('id', user.id)
                     .single();
 
-                // OWNER BYPASS: Automatically grant PRO to the master account
-                if (user.email === 'owner@bulkwamsg.com') {
+                const now = new Date();
+                const expiryDate = profile?.expires_at ? new Date(profile.expires_at) : null;
+                const isPro = profile?.plan === 'pro' && (!expiryDate || expiryDate > now);
+
+                // ADMIN BYPASS: Automatically grant PRO to internal accounts
+                const adminEmails = ['owner@bulkwamsg.com', 'ghassanadil@gmail.com', 'dagasta@gmail.com'];
+                if (adminEmails.includes(user.email || '')) {
+                    setUserPlan('pro');
+                } else if (isPro) {
                     setUserPlan('pro');
                 } else {
-                    setUserPlan(profile?.plan || 'free');
+                    setUserPlan('free');
                 }
 
                 // Redirect to pricing if they are on free plan
-                if (profile?.plan !== 'pro') {
+                if (!isPro && user.email !== 'owner@bulkwamsg.com') {
                     // router.push('/pricing'); // We will show a nice overlay instead of instant redirect
                 }
             } catch (err) {
@@ -96,7 +114,7 @@ export default function NewCampaignPage() {
         };
 
         checkConnection();
-        const interval = setInterval(checkConnection, 5000);
+        const interval = setInterval(checkConnection, 1000); // 1s polling for instant status updates
         return () => clearInterval(interval);
     }, []);
 
@@ -142,49 +160,111 @@ export default function NewCampaignPage() {
             return;
         }
 
+        const convertToUTC = (localISODate: string, targetTimezone: string) => {
+            const date = new Date(localISODate);
+            const browserTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+            if (browserTZ === targetTimezone) {
+                return date.toISOString();
+            }
+
+            // Calculate offset difference
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: targetTimezone,
+                year: 'numeric', month: 'numeric', day: 'numeric',
+                hour: 'numeric', minute: 'numeric', second: 'numeric',
+                hour12: false
+            });
+            const parts = formatter.formatToParts(date);
+            const getPart = (type: string) => parts.find(p => p.type === type)?.value;
+
+            const targetISO = `${getPart('year')}-${getPart('month')}-${getPart('day')}T${getPart('hour')}:${getPart('minute')}:${getPart('second')}`;
+            const targetDate = new Date(targetISO);
+
+            const diff = targetDate.getTime() - date.getTime();
+            return new Date(date.getTime() - diff).toISOString();
+        };
+
         setIsSending(true);
         setSendProgress({ sent: 0, total: numbers.length });
+        setErrors([]);
+        setSuccess(false);
 
         try {
-            const mediaList = [];
+            console.log('[Broadcast] Initializing mission...');
 
+            // 1. Process Media
+            const mediaList = [];
             if (formData.attachments.length > 0) {
+                console.log(`[Broadcast] Processing ${formData.attachments.length} attachments...`);
                 for (const file of formData.attachments) {
                     const reader = new FileReader();
                     const filePromise = new Promise<{ data: string; mimetype: string; filename: string }>((resolve, reject) => {
                         reader.onload = () => {
-                            const base64 = (reader.result as string).split(',')[1];
+                            const result = reader.result as string;
+                            const base64 = result.includes(',') ? result.split(',')[1] : result;
                             resolve({ data: base64, mimetype: file.type, filename: file.name });
                         };
-                        reader.onerror = reject;
+                        reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
                     });
                     reader.readAsDataURL(file);
                     mediaList.push(await filePromise);
+                    console.log(`[Broadcast] File ready: ${file.name}`);
                 }
             }
 
-            const contacts = numbers.map(phone => ({ phone, message: formData.message }));
+            // 2. Submit to API
+            console.log('[Broadcast] Engaging API via /api/whatsapp/send...');
+            setSendProgress({ sent: numbers.length, total: numbers.length });
+
+            const payload = {
+                type: 'bulk',
+                name: formData.name,
+                contacts: numbers.map(phone => ({ phone, message: formData.message })),
+                mediaList,
+                scheduledAt: formData.scheduledAt ? convertToUTC(formData.scheduledAt, formData.timezone) : null,
+                timezone: formData.timezone
+            };
+
             const response = await fetch('/api/whatsapp/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'bulk',
-                    name: formData.name,
-                    contacts,
-                    mediaList
-                })
+                body: JSON.stringify(payload)
             });
 
+            console.log(`[Broadcast] API Response Status: ${response.status}`);
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `Server Error (HTTP ${response.status})`);
+            }
+
             const result = await response.json();
+            console.log('[Broadcast] API Result:', result);
+
             if (result.success) {
                 setSuccess(true);
-                setTimeout(() => router.push('/dashboard'), 2000);
+                // Reset form instead of redirecting
+                setTimeout(() => {
+                    setFormData({
+                        name: '',
+                        message: '',
+                        numbers: '',
+                        attachments: [],
+                        scheduledAt: '',
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    });
+                    setSuccess(false);
+                    setIsSending(false);
+                }, 3000);
             } else {
-                setErrors([result.error || 'Failed to send messages']);
+                throw new Error(result.error || 'Failed to initialize broadcast protocol');
             }
-        } catch (error) {
-            setErrors(['Failed to send messages. Please try again.']);
+        } catch (error: any) {
+            console.error('[CRITICAL BROADCAST ERROR]:', error);
+            setErrors([error.message || 'An unexpected failure occurred. Please try again.']);
         } finally {
+            console.log('[Broadcast] Interaction cycle complete.');
             setIsSending(false);
         }
     };
@@ -279,16 +359,53 @@ export default function NewCampaignPage() {
                                 </div>
                                 <textarea
                                     rows={8}
-                                    placeholder="Write your broadcast content here... Supports personalized marketing tags."
+                                    placeholder="Write your broadcast content here... {Hi|Hello|Hey} supports personalization tags."
                                     className="w-full bg-slate-50 border-2 border-slate-100 rounded-[32px] px-8 py-6 font-bold text-dark-navy focus:bg-white focus:border-trust-blue outline-none transition-all placeholder:text-slate-300 resize-none leading-relaxed"
                                     value={formData.message}
                                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                                 />
                                 <p className="mt-4 text-[10px] font-bold text-slate-400 italic px-2">
-                                    💡 Tip: Personalized messages have 3x higher engagement rates.
+                                    💡 Tip: Use Spintax like {"{Hi|Hello}"} to vary your messages and avoid automated detection.
                                 </p>
                             </div>
                         </div>
+                    </div>
+
+                    <div className="card p-10 rounded-[40px] border-none shadow-xl bg-gradient-to-br from-white to-slate-50">
+                        <div className="flex items-center gap-4 mb-10">
+                            <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-trust-blue">
+                                <Clock className="w-6 h-6" />
+                            </div>
+                            <h2 className="text-2xl font-black text-dark-navy uppercase tracking-tight">Elite Scheduling</h2>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-8">
+                            <div className="group">
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1">Dispatch Time (Optional)</label>
+                                <input
+                                    type="datetime-local"
+                                    className="w-full bg-white border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-dark-navy focus:border-trust-blue outline-none transition-all"
+                                    value={formData.scheduledAt}
+                                    onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="group">
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1">Global Timezone</label>
+                                <select
+                                    className="w-full bg-white border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-dark-navy focus:border-trust-blue outline-none transition-all appearance-none cursor-pointer"
+                                    value={formData.timezone}
+                                    onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
+                                >
+                                    {Intl.supportedValuesOf('timeZone').map(tz => (
+                                        <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <p className="mt-6 text-[10px] font-bold text-slate-400 italic px-2">
+                            💡 {formData.scheduledAt ? `System will execute this mission at your local ${formData.timezone.replace(/_/g, ' ')} time.` : 'Leave empty to initiate an immediate broadcast blast.'}
+                        </p>
                     </div>
 
                     <div className="card p-10 rounded-[40px] border-none shadow-xl">
@@ -400,14 +517,6 @@ export default function NewCampaignPage() {
                             </div>
                         ))}
 
-                        {success && (
-                            <div className="p-10 bg-success-green rounded-[40px] shadow-2xl shadow-green-500/20 text-white text-center animate-scale-up">
-                                <CheckCircle2 className="w-16 h-16 mx-auto mb-6" />
-                                <h3 className="text-2xl font-black mb-2 italic">Broadcast Launched!</h3>
-                                <p className="text-sm font-bold opacity-80 uppercase tracking-widest">Redirecting to command center...</p>
-                            </div>
-                        )}
-
                         <button
                             type="submit"
                             disabled={isSending || !isWhatsAppConnected || userPlan !== 'pro'}
@@ -425,12 +534,46 @@ export default function NewCampaignPage() {
                                 <>
                                     <div className="flex items-center gap-4">
                                         <Send className="w-8 h-8 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform duration-300" />
-                                        <span>INITIATE BLAST</span>
+                                        <span>{formData.scheduledAt ? 'SCHEDULE BROADCAST' : 'INITIATE BLAST'}</span>
                                     </div>
                                     <span className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-50">Enterprise Protocol 5.2</span>
                                 </>
                             )}
                         </button>
+
+                        {success && (
+                            <div className="p-8 bg-white border-2 border-emerald-100 rounded-[40px] shadow-2xl animate-scale-up overflow-hidden relative group mt-4">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-5 mb-6">
+                                        <div className="w-14 h-14 bg-success-green/10 rounded-2xl flex items-center justify-center text-success-green">
+                                            <ShieldCheck className="w-8 h-8" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-black text-dark-navy italic leading-none mb-1">Verified Flight Plan</h3>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mission Locked & Logged</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Strategy</span>
+                                            <span className="text-xs font-black text-dark-navy italic">{formData.name || 'Bulk Dispatch'}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Dispatch Time</span>
+                                            <span className="text-xs font-black text-trust-blue italic">
+                                                {formData.scheduledAt ? new Date(formData.scheduledAt).toLocaleString() : 'Immediate Blast'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Target Leads</span>
+                                            <span className="text-xs font-black text-dark-navy">{parseNumbers(formData.numbers).length} Verified</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </form>

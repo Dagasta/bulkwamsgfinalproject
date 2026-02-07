@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     Plus,
     Search,
@@ -15,12 +15,80 @@ import {
     BarChart3,
     ArrowUpRight,
     Filter,
-    ArrowRight
+    ArrowRight,
+    Loader2,
+    Zap
 } from 'lucide-react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 
 export default function CampaignsPage() {
     const [searchQuery, setSearchQuery] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const [tick, setTick] = useState(0);
+    const [campaigns, setCampaigns] = useState<any[]>([]);
+    const [stats, setStats] = useState([
+        { icon: Send, label: 'Total Missions', value: '0', bgColor: 'bg-blue-50', iconColor: 'text-trust-blue' },
+        { icon: CheckCircle2, label: 'Successful', value: '0', bgColor: 'bg-green-50', iconColor: 'text-success-green' },
+        { icon: Clock, label: 'Active Flows', value: '0', bgColor: 'bg-orange-50', iconColor: 'text-warning-amber' },
+        { icon: BarChart3, label: 'Avg Health', value: '0%', bgColor: 'bg-purple-50', iconColor: 'text-premium-indigo' },
+    ]);
+
+    const supabase = useMemo(() => createClient(), []);
+
+    const fetchCampaigns = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data, error } = await supabase
+                .from('campaigns')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (data) {
+                setCampaigns(data);
+
+                // Calculate real stats
+                const total = data.length;
+                const successful = data.reduce((acc: number, c: any) => acc + (c.sent_count || 0), 0);
+                const active = data.filter((c: any) => c.status === 'scheduled' || c.status === 'sending').length;
+
+                const totalTargeted = data.reduce((acc: number, c: any) => acc + (c.recipients_count || 0), 0);
+                const avgHealth = totalTargeted > 0
+                    ? ((successful / totalTargeted) * 100).toFixed(1) + '%'
+                    : '0%';
+
+                setStats([
+                    { icon: Send, label: 'Total Missions', value: total.toLocaleString(), bgColor: 'bg-blue-50', iconColor: 'text-trust-blue' },
+                    { icon: CheckCircle2, label: 'Successful Signals', value: successful.toLocaleString(), bgColor: 'bg-green-50', iconColor: 'text-success-green' },
+                    { icon: Clock, label: 'Active Flows', value: active.toLocaleString(), bgColor: 'bg-orange-50', iconColor: 'text-warning-amber' },
+                    { icon: BarChart3, label: 'Avg Health', value: avgHealth, bgColor: 'bg-purple-50', iconColor: 'text-premium-indigo' },
+                ]);
+            }
+        } catch (error) {
+            console.error('Fetch Campaigns Error:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [supabase]);
+
+    useEffect(() => {
+        fetchCampaigns();
+        const interval = setInterval(fetchCampaigns, 30000); // Refetch every 30s
+        const timer = setInterval(() => setTick(t => t + 1), 1000); // Tick every 1s for countdown
+        return () => {
+            clearInterval(interval);
+            clearInterval(timer);
+        };
+    }, [fetchCampaigns]);
+
+    const filteredCampaigns = campaigns.filter(c =>
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.message.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     return (
         <div className="space-y-12 animate-fade-in pb-20">
@@ -30,9 +98,14 @@ export default function CampaignsPage() {
                     <h1 className="text-5xl font-black text-dark-navy tracking-tighter italic">
                         Mission <span className="gradient-text">Log</span>
                     </h1>
-                    <p className="text-lg text-slate-400 font-medium italic opacity-80 mt-2">
-                        Deployment history and real-time broadcast tracking.
-                    </p>
+                    <div className="flex items-center gap-4 mt-2">
+                        <p className="text-lg text-slate-400 font-medium italic opacity-80">
+                            Deployment history and real-time broadcast tracking.
+                        </p>
+                        <a href="/api/status-check" target="_blank" className="text-[10px] font-black text-trust-blue bg-indigo-50 px-3 py-1 rounded-full hover:bg-trust-blue hover:text-white transition-all">
+                            DIAGNOSTIC DATA
+                        </a>
+                    </div>
                 </div>
                 <Link href="/dashboard/campaigns/new" className="bg-gradient-primary text-white flex items-center gap-4 px-10 py-5 rounded-[30px] font-black shadow-2xl hover:shadow-trust-blue/30 hover:-translate-y-1 transition-all group">
                     <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
@@ -50,7 +123,7 @@ export default function CampaignsPage() {
                             </div>
                             <div className="flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-100 rounded-full">
                                 <span className="w-1.5 h-1.5 rounded-full bg-trust-blue animate-pulse"></span>
-                                <span className="text-[10px] font-black text-slate-400">ACTIVE</span>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">LIVE</span>
                             </div>
                         </div>
                         <h3 className="text-4xl font-black text-dark-navy tracking-tighter mb-1">{stat.value}</h3>
@@ -72,9 +145,34 @@ export default function CampaignsPage() {
                     />
                 </div>
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                    <button className="flex items-center gap-2 px-8 py-5 rounded-[30px] bg-slate-50 border-2 border-transparent text-slate-500 font-black text-xs uppercase tracking-widest hover:bg-indigo-50 hover:text-trust-blue transition-all">
-                        <Filter className="w-4 h-4" />
-                        Status Phase
+                    <button onClick={fetchCampaigns} className="flex items-center gap-2 px-8 py-5 rounded-[30px] bg-slate-50 border-2 border-transparent text-slate-500 font-black text-xs uppercase tracking-widest hover:bg-indigo-50 hover:text-trust-blue transition-all">
+                        <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        Sync Phase
+                    </button>
+                    <button
+                        onClick={async () => {
+                            setIsLoading(true);
+                            try {
+                                const res = await fetch('/api/worker/process');
+                                const data = await res.json();
+                                if (data.processed > 0) {
+                                    alert(`Successfully triggered! Processed ${data.processed} messages.`);
+                                    fetchCampaigns();
+                                } else if (data.message) {
+                                    alert(`Heartbeat: ${data.message}`);
+                                } else if (data.error) {
+                                    alert(`Error: ${data.error}`);
+                                }
+                            } catch (e) {
+                                alert('Failed to connect to worker.');
+                            } finally {
+                                setIsLoading(false);
+                            }
+                        }}
+                        className="flex items-center gap-2 px-8 py-5 rounded-[30px] bg-indigo-50 text-trust-blue font-black text-xs uppercase tracking-widest hover:bg-trust-blue hover:text-white transition-all shadow-sm"
+                    >
+                        <Zap className="w-4 h-4" />
+                        Force Trigger
                     </button>
                     <button className="flex items-center gap-2 px-8 py-5 rounded-[30px] bg-dark-navy text-white font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl">
                         <ArrowUpRight className="w-4 h-4" />
@@ -86,145 +184,136 @@ export default function CampaignsPage() {
             {/* Elite Data Interface */}
             <div className="card p-0 rounded-[48px] border-none shadow-2xl bg-white overflow-hidden relative">
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-primary"></div>
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="bg-slate-50/50">
-                                <th className="py-8 px-10 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Deployment Identity</th>
-                                <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Operational Phase</th>
-                                <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Target Load</th>
-                                <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Signal Health</th>
-                                <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Deployment Log</th>
-                                <th className="py-8 px-10 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tactical</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {campaigns.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="py-32 text-center">
-                                        <div className="flex flex-col items-center gap-8 animate-pulse">
-                                            <div className="w-24 h-24 bg-indigo-50 rounded-[40px] flex items-center justify-center text-trust-blue shadow-inner">
-                                                <Send className="w-10 h-10 opacity-30" />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <h3 className="text-3xl font-black text-dark-navy italic">No Active Missions</h3>
-                                                <p className="text-slate-400 font-medium italic">Initiate your first global signal broadcast to populate the matrix.</p>
-                                            </div>
-                                            <Link href="/dashboard/campaigns/new" className="bg-dark-navy text-white px-12 py-5 rounded-2xl font-black text-sm flex items-center gap-3 shadow-xl hover:bg-black transition-all">
-                                                START NEW CAMPAIGN
-                                                <ArrowRight className="w-5 h-5" />
-                                            </Link>
-                                        </div>
-                                    </td>
+                {isLoading ? (
+                    <div className="py-40 flex flex-col items-center justify-center">
+                        <Loader2 className="w-12 h-12 text-trust-blue animate-spin mb-4" />
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] italic">Accessing Mission Data...</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="bg-slate-50/50">
+                                    <th className="py-8 px-10 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Deployment Identity</th>
+                                    <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Operational Phase</th>
+                                    <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Target Load</th>
+                                    <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Signal Health</th>
+                                    <th className="py-8 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Deployment Log</th>
+                                    <th className="py-8 px-10 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tactical</th>
                                 </tr>
-                            ) : (
-                                campaigns.map((campaign, index) => (
-                                    <tr key={index} className="group border-b border-slate-50 hover:bg-slate-50/50 transition-all cursor-pointer">
-                                        <td className="py-8 px-10">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center font-black text-trust-blue shadow-sm border border-indigo-100 group-hover:scale-110 transition-transform">
-                                                    <Send className="w-5 h-5" />
+                            </thead>
+                            <tbody>
+                                {filteredCampaigns.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="py-32 text-center">
+                                            <div className="flex flex-col items-center gap-8 animate-pulse">
+                                                <div className="w-24 h-24 bg-indigo-50 rounded-[40px] flex items-center justify-center text-trust-blue shadow-inner">
+                                                    <Send className="w-10 h-10 opacity-30" />
                                                 </div>
-                                                <div>
-                                                    <p className="font-black text-dark-navy group-hover:text-trust-blue transition-colors italic leading-none mb-1">{campaign.name}</p>
-                                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest max-w-[200px] truncate">{campaign.message}</p>
+                                                <div className="space-y-2">
+                                                    <h3 className="text-3xl font-black text-dark-navy italic">No Active Missions</h3>
+                                                    <p className="text-slate-400 font-medium italic">Initiate your first global signal broadcast to populate the matrix.</p>
                                                 </div>
+                                                <Link href="/dashboard/campaigns/new" className="bg-dark-navy text-white px-12 py-5 rounded-2xl font-black text-sm flex items-center gap-3 shadow-xl hover:bg-black transition-all">
+                                                    START NEW CAMPAIGN
+                                                    <ArrowRight className="w-5 h-5" />
+                                                </Link>
                                             </div>
-                                        </td>
-                                        <td className="py-8 px-6">
-                                            <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] border shadow-sm ${campaign.status === 'completed'
-                                                ? 'bg-emerald-50 text-success-green border-emerald-100'
-                                                : campaign.status === 'scheduled'
-                                                    ? 'bg-amber-50 text-warning-amber border-amber-100'
-                                                    : 'bg-slate-50 text-slate-400 border-slate-100'
-                                                }`}>
-                                                {campaign.status === 'completed' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                                                {campaign.status}
-                                            </span>
-                                        </td>
-                                        <td className="py-8 px-6 text-sm font-black text-dark-navy italic tabular-nums">{campaign.recipients} identities</td>
-                                        <td className="py-8 px-6">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex-1 h-1.5 w-16 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-trust-blue" style={{ width: campaign.deliveryRate }}></div>
-                                                </div>
-                                                <span className="text-[10px] font-black text-dark-navy">{campaign.deliveryRate}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-8 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{campaign.date}</td>
-                                        <td className="py-8 px-10 text-right">
-                                            <button className="p-3 bg-white border border-slate-100 hover:bg-slate-50 rounded-xl shadow-sm transition-all text-slate-400 hover:text-dark-navy">
-                                                <MoreVertical className="w-5 h-5" />
-                                            </button>
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                ) : (
+                                    filteredCampaigns.map((campaign, index) => {
+                                        const health = ((campaign.sent_count / (campaign.recipients_count || 1)) * 100).toFixed(1) + '%';
+                                        return (
+                                            <tr key={index} className="group border-b border-slate-50 hover:bg-slate-50/50 transition-all cursor-pointer">
+                                                <td className="py-8 px-10">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center font-black text-trust-blue shadow-sm border border-indigo-100 group-hover:scale-110 transition-transform">
+                                                            <Send className="w-5 h-5" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-black text-dark-navy group-hover:text-trust-blue transition-colors italic leading-none mb-1">{campaign.name}</p>
+                                                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest max-w-[200px] truncate">{campaign.message}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="py-8 px-6">
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] border shadow-sm ${campaign.status === 'completed'
+                                                            ? 'bg-emerald-50 text-success-green border-emerald-100'
+                                                            : campaign.status === 'scheduled'
+                                                                ? 'bg-amber-50 text-warning-amber border-amber-100'
+                                                                : campaign.status === 'queued'
+                                                                    ? 'bg-blue-50 text-trust-blue border-blue-100'
+                                                                    : campaign.status === 'failed'
+                                                                        ? 'bg-red-50 text-red-500 border-red-100'
+                                                                        : 'bg-indigo-50 text-trust-blue border-indigo-100'
+                                                            }`}>
+                                                            {campaign.status === 'completed' ? <CheckCircle2 className="w-3 h-3" /> : (campaign.status === 'queued' ? <Zap className="w-3 h-3 animate-pulse" /> : <Clock className="w-3 h-3" />)}
+                                                            {campaign.status === 'queued' ? 'INITIATING' : campaign.status}
+                                                        </span>
+                                                        {campaign.error_log && (
+                                                            <span className="text-[9px] text-red-400 font-bold max-w-[120px] truncate px-2" title={campaign.error_log}>
+                                                                {campaign.error_log}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="py-8 px-6 text-sm font-black text-dark-navy italic tabular-nums">{campaign.recipients_count} identities</td>
+                                                <td className="py-8 px-6">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex-1 h-1.5 w-16 bg-slate-100 rounded-full overflow-hidden">
+                                                            <div className="h-full bg-trust-blue" style={{ width: health }}></div>
+                                                        </div>
+                                                        <span className="text-[10px] font-black text-dark-navy">{health}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="py-8 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                                                    {campaign.status === 'scheduled' ? (
+                                                        <div className="flex flex-col">
+                                                            <div className="flex items-center gap-2 text-trust-blue mb-1">
+                                                                <Clock className="w-3 h-3 animate-pulse" />
+                                                                <span>
+                                                                    {new Date(campaign.scheduled_at).toLocaleString([], {
+                                                                        timeZone: campaign.timezone,
+                                                                        hour: '2-digit',
+                                                                        minute: '2-digit',
+                                                                        day: '2-digit',
+                                                                        month: 'short'
+                                                                    })}
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-[8px] opacity-70 flex items-center gap-1">
+                                                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-trust-blue/30 animate-ping"></span>
+                                                                T-MINUS {(() => {
+                                                                    const diff = new Date(campaign.scheduled_at).getTime() - new Date().getTime();
+                                                                    if (diff <= 0 || campaign.status === 'queued') return "INITIATING...";
+                                                                    const mins = Math.floor(diff / 60000);
+                                                                    const secs = Math.floor((diff % 60000) / 1000);
+                                                                    return `${mins}M ${secs}S`;
+                                                                })()}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        new Date(campaign.created_at).toLocaleDateString()
+                                                    )}
+                                                </td>
+                                                <td className="py-8 px-10 text-right">
+                                                    <button className="p-3 bg-white border border-slate-100 hover:bg-slate-50 rounded-xl shadow-sm transition-all text-slate-400 hover:text-dark-navy">
+                                                        <MoreVertical className="w-5 h-5" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         </div>
     );
 }
 
-const stats = [
-    {
-        icon: Send,
-        label: 'Total Missions',
-        value: '4,290',
-        bgColor: 'bg-blue-50',
-        iconColor: 'text-trust-blue',
-    },
-    {
-        icon: CheckCircle2,
-        label: 'Successful',
-        value: '4,102',
-        bgColor: 'bg-green-50',
-        iconColor: 'text-success-green',
-    },
-    {
-        icon: Clock,
-        label: 'Active Flows',
-        value: '124',
-        bgColor: 'bg-orange-50',
-        iconColor: 'text-warning-amber',
-    },
-    {
-        icon: BarChart3,
-        label: 'Avg Health',
-        value: '99.2%',
-        bgColor: 'bg-purple-50',
-        iconColor: 'text-premium-indigo',
-    },
-];
-
-const campaigns = [
-    {
-        name: 'Summer Blitz 2025',
-        message: 'Get ready for our massive summer deals happening now...',
-        status: 'completed',
-        recipients: '14,290',
-        sent: '14,290',
-        deliveryRate: '98.5%',
-        date: '2H AGO',
-    },
-    {
-        name: 'VIP Loyalty Rewards',
-        message: 'Because you are one of our top 1% customers, we have...',
-        status: 'scheduled',
-        recipients: '2,400',
-        sent: '0',
-        deliveryRate: '0%',
-        date: 'IN 5H',
-    },
-    {
-        name: 'Flash Sale Alert',
-        message: 'Everything must go! 50% discount for the next 4 hours...',
-        status: 'completed',
-        recipients: '8,500',
-        sent: '8,492',
-        deliveryRate: '99.1%',
-        date: '1D AGO',
-    }
-];
+import { RefreshCw } from 'lucide-react';

@@ -14,17 +14,28 @@ export default async function DashboardPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Fetch user plan status
     let userPlan = 'free';
+    let expiresAt = null;
     if (user) {
         const { data: profile } = await supabase
             .from('profiles')
-            .select('plan')
+            .select('plan, expires_at')
             .eq('id', user.id)
             .single();
 
-        userPlan = profile?.plan || 'free';
-        if (user.email === 'owner@bulkwamsg.com') userPlan = 'pro';
+        expiresAt = profile?.expires_at;
+        const now = new Date();
+        const expiryDate = expiresAt ? new Date(expiresAt) : null;
+
+        // Check if plan is 'pro' and not expired
+        if (profile?.plan === 'pro' && (!expiryDate || expiryDate > now)) {
+            userPlan = 'pro';
+        } else {
+            userPlan = 'free';
+        }
+
+        const adminEmails = ['owner@bulkwamsg.com', 'ghassanadil@gmail.com', 'dagasta@gmail.com'];
+        if (adminEmails.includes(user.email || '')) userPlan = 'pro';
     }
 
     // Fetch actual signal totals for the header
@@ -40,6 +51,8 @@ export default async function DashboardPage() {
         .eq('user_id', user?.id);
 
     const totalSent = (campaigns?.reduce((acc, c) => acc + (c.sent_count || 0), 0) || 0);
+    const totalRecipients = (campaigns?.reduce((acc, c) => acc + (c.recipients_count || 0), 0) || 0);
+    const signalIntegrity = totalRecipients > 0 ? ((totalSent / totalRecipients) * 100).toFixed(1) : '100';
     const totalSignals = totalSent.toLocaleString();
 
     // Map stats dynamically
@@ -56,13 +69,13 @@ export default async function DashboardPage() {
             iconColor: 'text-trust-blue',
         },
         {
-            icon: Users,
-            label: 'Total Leads',
-            value: (contactCount || 0).toLocaleString(),
-            change: 'Stable',
-            changeBg: 'bg-slate-50',
-            changeColor: 'text-slate-400',
-            changeBorder: 'border-slate-100',
+            icon: Shield,
+            label: 'Signal Integrity',
+            value: `${signalIntegrity}%`,
+            change: 'Optimal',
+            changeBg: 'bg-indigo-50',
+            changeColor: 'text-trust-blue',
+            changeBorder: 'border-indigo-100',
             bgColor: 'bg-emerald-50',
             iconColor: 'text-success-green',
         },
@@ -80,7 +93,7 @@ export default async function DashboardPage() {
         {
             icon: MessageSquare,
             label: 'Active missions',
-            value: (campaigns?.length || 0).toString(),
+            value: (campaigns?.filter(c => c.status !== 'completed' && c.status !== 'failed')?.length || 0).toString(),
             change: 'Sync Active',
             changeBg: 'bg-amber-50',
             changeColor: 'text-warning-amber',

@@ -4,333 +4,441 @@ import { Boom } from '@hapi/boom';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Store active connections
-const activeConnections = new Map<string, {
-    socket: any;
-    qrCode: string | null;
-    isReady: boolean;
-    isInitializing: boolean;
-    lastError: string | null;
-}>();
+// --- Global Persistence for Next.js ---
+const globalForBaileys = global as any;
+if (!globalForBaileys.activeConnections) globalForBaileys.activeConnections = new Map();
+if (!globalForBaileys.memoryLocks) globalForBaileys.memoryLocks = new Set();
+if (!globalForBaileys.cachedVersion) globalForBaileys.cachedVersion = null;
 
-// Cache version to avoid repeated network requests
-let cachedVersion: [number, number, number] | null = null;
+export const activeConnections = globalForBaileys.activeConnections;
+const memoryLocks = globalForBaileys.memoryLocks;
 
-// Locks to prevent multiple simultaneous initializations
-const initializationLocks = new Set<string>();
+export function debugLog(message: string) {
+    const logPath = path.join(process.cwd(), '_dispatch_debug.log');
+    const entry = `[${new Date().toISOString()}] ${message}\n`;
+    console.log(message);
+    try { fs.appendFileSync(logPath, entry); } catch (e) { }
+}
+
+function acquireLock(userId: string): boolean {
+    const lockFile = path.join(process.cwd(), '.baileys_auth', 'locks', `${userId}.lock`);
+    if (!fs.existsSync(path.dirname(lockFile))) fs.mkdirSync(path.dirname(lockFile), { recursive: true });
+
+    if (fs.existsSync(lockFile)) {
+        try {
+            const pidString = fs.readFileSync(lockFile, 'utf8').trim();
+            const pid = parseInt(pidString);
+            if (pid === process.pid) return true;
+
+            // Check if process is still alive
+            try {
+                process.kill(pid, 0);
+                // Process is alive. On Windows, let's check if it's actually a Node process
+                // but for now, we'll be slightly more permissive to avoid ghost blocks.
+                debugLog(`[Lock] 🚨 Lock held by alive PID ${pid}. Current PID ${process.pid}`);
+                return false;
+            } catch (e) {
+                // Process is dead, take over
+                debugLog(`[Lock] 🔓 Stale lock found (PID ${pid} dead). Taking over.`);
+                fs.writeFileSync(lockFile, process.pid.toString());
+                return true;
+            }
+        } catch (e) {
+            fs.writeFileSync(lockFile, process.pid.toString());
+            return true;
+        }
+    }
+    fs.writeFileSync(lockFile, process.pid.toString());
+    return true;
+}
+
+function releaseLock(userId: string) {
+    const lockFile = path.join(process.cwd(), '.baileys_auth', 'locks', `${userId}.lock`);
+    try {
+        if (fs.existsSync(lockFile)) {
+            const pid = fs.readFileSync(lockFile, 'utf8').trim();
+            if (pid === process.pid.toString()) {
+                fs.unlinkSync(lockFile);
+            }
+        }
+    } catch (e) { }
+}
+
+// --- Master Connection Control ---
+if (!globalForBaileys.connPromises) globalForBaileys.connPromises = new Map();
+export const connPromises = globalForBaileys.connPromises;
+
+export function parseSpintax(text: string): string {
+    const spintaxRegex = /\{([^{}]+)\}/g;
+    let match;
+    let result = text;
+    while ((match = spintaxRegex.exec(result)) !== null) {
+        const parts = match[1].split('|');
+        const randomPart = parts[Math.floor(Math.random() * parts.length)];
+        result = result.replace(match[0], randomPart);
+        spintaxRegex.lastIndex = 0; // Reset to catch nested or subsequent patterns
+    }
+    return result;
+}
+
+function repairJID(phone: string): string {
+    let clean = phone.replace(/\D/g, '');
+
+    // Global normalization: Handle leading 00 or + (already removed by \D)
+    // If it's a local number without country code, we need to be careful.
+    // Defaulting to appending @s.whatsapp.net is standard for Baileys.
+
+    // Specialized UAE handling as requested in original code but made safer
+    if (clean.startsWith('05') && clean.length === 10) {
+        clean = '971' + clean.substring(1);
+    } else if (clean.startsWith('0') && !clean.startsWith('00')) {
+        // Generic local to international if starts with 0 (might need user country config later)
+        // For now, we keep it as is if it's already long enough to be international
+        if (clean.length < 10) {
+            debugLog(`[JID] ⚠️ Short number detected: ${clean}`);
+        }
+    }
+
+    return `${clean}@s.whatsapp.net`;
+}
 
 export async function connectToWhatsApp(userId: string) {
-    // Check if already initializing or connected
-    if (activeConnections.has(userId)) {
-        const existing = activeConnections.get(userId)!;
-
-        // If ready or initializing (including waiting for scan with QR code), keep it
-        if (existing.isReady || existing.isInitializing || existing.qrCode) {
-            if (existing.isReady) {
-                console.log(`[Baileys] User ${userId} already connected`);
-            } else if (existing.qrCode) {
-                console.log(`[Baileys] User ${userId} waiting for QR scan...`);
-            } else {
-                console.log(`[Baileys] User ${userId} already initializing...`);
-            }
+    // 1. Return existing connection IF it's alive and healthy
+    const existing = activeConnections.get(userId);
+    if (existing) {
+        const ws = existing.socket?.ws;
+        // If OPEN, use it. If connecting, wait for it.
+        if (ws?.readyState === 1 || ws?.readyState === 0) {
             return existing.socket;
         }
+        // If Closing/Closed, we proceed to re-initiate
+    }
 
-        // If it's in the map but not ready or initializing and has no QR, it's a dead or failed connection
-        // We clean it up and start a fresh one.
-        console.log(`[Baileys] Cleaning up failed/dead connection for user ${userId}`);
+    // 2. Singleton Lock: Prevent parallel connection attempts
+    if (connPromises.has(userId)) {
+        debugLog(`[Baileys] 🦾 Already initiating for: ${userId}`);
+        return connPromises.get(userId);
+    }
+
+    // 3. Selective Clean Slate: Only purge if we suspect corruption (no existing memory state)
+    if (!existing) {
+        debugLog(`[Baileys] 🧹 First-time initiation for: ${userId}. Ensuring clean slate.`);
+        // For first-time or explicit reconnection, we want to clear any orphan state
+        // disconnectBaileys(userId); // We'll be more selective below
+    }
+
+    const initiationPromise = (async () => {
         try {
-            existing.socket.ev.removeAllListeners('connection.update');
-            existing.socket.ev.removeAllListeners('creds.update');
-            existing.socket.end();
-        } catch (e) { }
-        activeConnections.delete(userId);
-    }
+            if (memoryLocks.has(userId)) return null;
+            memoryLocks.add(userId);
+            acquireLock(userId);
 
-    // Check lock
-    if (initializationLocks.has(userId)) {
-        console.log(`[Baileys] Initialization lock active for user ${userId}, skipping`);
-        return null;
-    }
+            const authDir = path.join(process.cwd(), '.baileys_auth', `session-v24-${userId}`);
+            if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
 
-    initializationLocks.add(userId);
-    console.log(`[Baileys] 🚀 Initializing WhatsApp for user: ${userId}`);
+            debugLog(`[Baileys-V24] 🔥 High-Performance Initiation: ${userId}`);
 
-    try {
-        // Create auth directory
-        const authDir = path.join(process.cwd(), '.baileys_auth', `session-${userId}`);
-        if (!fs.existsSync(authDir)) {
-            console.log(`[Baileys] Creating auth directory: ${authDir}`);
-            fs.mkdirSync(authDir, { recursive: true });
-        }
+            const { state, saveCreds } = await getBaileysAuthState(authDir);
 
-        // Get latest Baileys version with timeout
-        console.log(`[Baileys] Fetching latest version...`);
-        let version: [number, number, number] = [2, 3000, 1015901307];
-
-        if (cachedVersion) {
-            version = cachedVersion;
-            console.log(`[Baileys] Using cached version v${version.join('.')}`);
-        } else {
-            try {
-                const versionPromise = fetchLatestBaileysVersion();
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Fetch version timeout')), 5000)
-                );
-                const result = await Promise.race([versionPromise, timeoutPromise]) as any;
-                version = result.version;
-                cachedVersion = version;
-                console.log(`[Baileys] Using freshly fetched version v${version.join('.')}`);
-            } catch (vError) {
-                console.warn(`[Baileys] ⚠️ Failed to fetch version or timeout, using fallback: ${vError}`);
-                // Don't cache the fallback just in case it's a transient network error
-            }
-        }
-
-        // Load auth state
-        console.log(`[Baileys] Loading auth state...`);
-        const { state, saveCreds } = await getBaileysAuthState(authDir);
-
-        // Create socket
-        console.log(`[Baileys] Creating socket...`);
-        const socket = makeWASocket({
-            version,
-            auth: state,
-            printQRInTerminal: false,
-            browser: ['Ubuntu', 'Chrome', '20.0.04'],
-            retryRequestDelayMs: 10000,
-            connectTimeoutMs: 60000,
-            keepAliveIntervalMs: 30000,
-            generateHighQualityLinkPreview: false,
-        });
-
-        // Initialize connection state
-        const connectionState = {
-            socket,
-            qrCode: null as string | null,
-            isReady: false,
-            isInitializing: true,
-            lastError: null as string | null
-        };
-
-        activeConnections.set(userId, connectionState);
-        initializationLocks.delete(userId);
-
-        // Handle connection updates
-        socket.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect, qr } = update;
-
-            if (qr) {
-                console.log(`[Baileys Update] 🎫 QR received for ${userId}`);
+            // Version caching for extreme QR speed
+            let version: any = globalForBaileys.cachedVersion || [2, 3000, 1015901307];
+            if (!globalForBaileys.cachedVersion) {
                 try {
-                    const qrCodeData = await QRCode.toDataURL(qr, {
-                        errorCorrectionLevel: 'M',
-                        margin: 1,
-                        width: 400
-                    });
-                    connectionState.qrCode = qrCodeData;
-                    connectionState.isInitializing = false;
-                    connectionState.lastError = null;
-                    console.log(`[Baileys Update] ✅ QR stored for ${userId}`);
-                } catch (error) {
-                    console.error(`[Baileys Update] ❌ QR error for ${userId}:`, error);
-                }
-            }
-
-            if (connection === 'open') {
-                console.log(`[Baileys Update] 🚀 Connected for ${userId}`);
-                connectionState.isReady = true;
-                connectionState.qrCode = null;
-                connectionState.isInitializing = false;
-                connectionState.lastError = null;
-            }
-
-            if (connection === 'close') {
-                const error = lastDisconnect?.error as Boom;
-                const errorCode = error?.output?.statusCode;
-                const errorMessage = error?.message || 'Unknown error';
-
-                console.log(`[Baileys Update] ⚠️ Closed for ${userId}. Code: ${errorCode}, Msg: ${errorMessage}`);
-
-                connectionState.isReady = false;
-                connectionState.isInitializing = false;
-                connectionState.lastError = `Disconnected: ${errorMessage} (Code: ${errorCode})`;
-                connectionState.qrCode = null; // Clear QR on close
-
-                // If it's a conflict or other common issue, we'll keep it in the map 
-                // but marked as not ready. The next user poll will eventually 
-                // trigger cleanup and restart if enough time has passed.
-
-                if (errorCode === DisconnectReason.loggedOut) {
-                    console.log(`[Baileys] Logged out, clearing session for user ${userId}`);
-                    activeConnections.delete(userId);
-                    const authDir = path.join(process.cwd(), '.baileys_auth', `session-${userId}`);
-                    if (fs.existsSync(authDir)) {
-                        fs.rmSync(authDir, { recursive: true, force: true });
+                    const { version: latest } = await fetchLatestBaileysVersion();
+                    if (Array.isArray(latest)) {
+                        version = latest;
+                        globalForBaileys.cachedVersion = version;
+                        debugLog(`[Baileys] 📦 Version cached: ${version}`);
                     }
-                } else if (errorCode === DisconnectReason.connectionClosed || errorCode === DisconnectReason.connectionLost || errorCode === DisconnectReason.connectionReplaced) {
-                    // For these transient errors, we keep the connection in the map but mark it as not ready.
-                    // The system will attempt to re-initialize it on the next request.
-                    console.log(`[Baileys] Connection closed/lost/replaced for ${userId}. Will attempt to re-initialize.`);
-                } else {
-                    // For other errors, we remove it to force a full re-initialization.
-                    console.log(`[Baileys] Removing connection for ${userId} due to unhandled disconnect reason.`);
-                    activeConnections.delete(userId);
+                } catch (e) {
+                    debugLog(`[Baileys] ⚠️ Version fetch failed, using fallback.`);
                 }
             }
-        });
 
-        socket.ev.on('creds.update', saveCreds);
+            const socket = makeWASocket({
+                version,
+                auth: state,
+                printQRInTerminal: false,
+                browser: ['Windows', 'Chrome', '121.0.6167.184'],
+                connectTimeoutMs: 60000,
+                defaultQueryTimeoutMs: 60000,
+                keepAliveIntervalMs: 30000,
+                retryRequestDelayMs: 5000,
+                fireInitQueries: true,
+                markOnlineOnConnect: true,
+                generateHighQualityLinkPreview: true,
+                syncFullHistory: false,
+                linkPreviewImageThumbnailWidth: 192,
+                msgRetryCounterCache: undefined,
+                shouldIgnoreJid: (jid) => jid.includes('broadcast') || jid.includes('status')
+            });
 
-        console.log(`[Baileys] Initialization request completed for user: ${userId}`);
-        return socket;
-    } catch (error) {
-        initializationLocks.delete(userId);
-        console.error(`[Baileys] ❌ Failed to initialize for user ${userId}: ${error}`);
-        activeConnections.delete(userId);
-        throw error;
-    }
-}
+            const connState: any = {
+                socket,
+                qrCode: null,
+                isReady: !!state.creds?.me?.id,
+                isInitializing: true,
+                isLinking: false,
+                startedAt: Date.now()
+            };
 
-export function getBaileysQRCode(userId: string): string | null {
-    const connection = activeConnections.get(userId);
-    return connection?.qrCode || null;
-}
+            activeConnections.set(userId, connState);
+            memoryLocks.delete(userId);
 
-export function isBaileysReady(userId: string): boolean {
-    const connection = activeConnections.get(userId);
-    return connection?.isReady || false;
-}
+            // --- HANDSHAKE TRACE ---
+            socket.ev.on('creds.update', async () => {
+                debugLog(`[Trace] 💾 Creds Sync [${userId}]`);
+                await saveCreds();
 
-export function isBaileysInitializing(userId: string): boolean {
-    const connection = activeConnections.get(userId);
-    return connection?.isInitializing || false;
-}
+                // If we just got identity, we are halfway home
+                if (socket.authState.creds.me?.id && !connState.isReady) {
+                    debugLog(`[Baileys] 🆔 Identity established for: ${userId}. Linking in progress...`);
+                    connState.isReady = true;
+                    connState.isLinking = true;
+                }
+            });
 
-// Spintax helper: converts "{Hi|Hello|Hey} there!" to "Hi there!", "Hello there!", etc.
-function resolveSpintax(text: string): string {
-    return text.replace(/{([^{}]+)}/g, (match, options) => {
-        const choices = options.split('|');
-        return choices[Math.floor(Math.random() * choices.length)];
+            socket.ev.on('connection.update', (update) => {
+                const { connection, lastDisconnect, qr } = update;
+
+                if (qr) {
+                    QRCode.toDataURL(qr, { margin: 2, width: 400 }).then(data => {
+                        connState.qrCode = data;
+                        debugLog(`[Baileys] 📱 QR Pulsing [${userId}]`);
+                    }).catch(e => {
+                        debugLog(`[Baileys] ❌ QR Gen Fail: ${e.message}`);
+                    });
+                }
+
+                if (connection === 'open') {
+                    debugLog(`[Baileys] ✅ CONNECTED & SYNCED [${userId}]`);
+                    debugLog(`[Baileys] ⚡ LIVE & SECURED [${userId}] (Took ${((Date.now() - connState.startedAt) / 1000).toFixed(1)}s)`);
+                    connState.isReady = true;
+                    connState.isInitializing = false;
+                    connState.isLinking = false;
+                    connState.qrCode = null;
+                }
+
+                if (connection === 'close') {
+                    const errorCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+                    debugLog(`[Baileys] 🛑 DISCONNECTED [${userId}] (Code: ${errorCode})`);
+
+                    // ONLY purge on explicit logout or 401 (Unauthorized)
+                    const isFatal = errorCode === DisconnectReason.loggedOut || errorCode === 401;
+
+                    if (isFatal) {
+                        debugLog(`[Baileys] 💀 FATAL: ${errorCode}. Purging Identity ${userId}`);
+                        disconnectBaileys(userId); // Full Purge (Memory + Disk)
+                    } else {
+                        debugLog(`[Baileys] 🔄 SOFT RECONNECT: ${errorCode}. Attempting recovery...`);
+                        // Recover in-place without purging disk
+                        setTimeout(() => {
+                            connectToWhatsApp(userId).catch(() => { });
+                        }, 2000);
+                    }
+                }
+            });
+
+            return socket;
+        } catch (error: any) {
+            memoryLocks.delete(userId);
+            connPromises.delete(userId);
+            disconnectBaileys(userId);
+            debugLog(`[Baileys] ❌ CRITICAL ERROR: ${error.message}`);
+            throw error;
+        } finally {
+            // No-op, promise is managed by its own lifecycle
+        }
+    })();
+
+    connPromises.set(userId, initiationPromise);
+    // Cleanup promise map once finished (success or fail)
+    initiationPromise.finally(() => {
+        connPromises.delete(userId);
     });
-}
-
-export async function sendBaileysMessage(
-    userId: string,
-    to: string,
-    message: string,
-    mediaList?: Array<{ url?: string, buffer?: Buffer, mimetype?: string, filename?: string }> | { url?: string, buffer?: Buffer, mimetype?: string, filename?: string }
-) {
-    const connection = activeConnections.get(userId);
-
-    if (!connection || !connection.socket || !connection.isReady) {
-        throw new Error('WhatsApp is not connected. Please scan QR code first.');
-    }
-
-    try {
-        // Resolve spintax in message
-        const resolvedMessage = resolveSpintax(message);
-
-        // Format phone number
-        const formattedNumber = to.replace(/\D/g, '');
-        const jid = `${formattedNumber}@s.whatsapp.net`;
-
-        // Normalize mediaList to an array
-        const normalizedMediaList = Array.isArray(mediaList) ? mediaList : (mediaList ? [mediaList] : []);
-
-        if (normalizedMediaList.length > 0) {
-            for (let i = 0; i < normalizedMediaList.length; i++) {
-                const media = normalizedMediaList[i];
-                // Determine if it's an image or a general document
-                const isImage = media.mimetype?.startsWith('image/');
-                const isVideo = media.mimetype?.startsWith('video/');
-                const isAudio = media.mimetype?.startsWith('audio/');
-
-                // Attach caption ONLY to the first media message
-                let content: any = { caption: i === 0 ? resolvedMessage : '' };
-
-                if (isImage) {
-                    content.image = media.buffer || { url: media.url };
-                } else if (isVideo) {
-                    content.video = media.buffer || { url: media.url };
-                } else if (isAudio) {
-                    content.audio = media.buffer || { url: media.url };
-                    content.mimetype = media.mimetype;
-                } else {
-                    content.document = media.buffer || { url: media.url };
-                    content.mimetype = media.mimetype || 'application/octet-stream';
-                    content.fileName = media.filename || 'document';
-                }
-
-                await connection.socket.sendMessage(jid, content);
-
-                // Small delay between media items if there are multiple
-                if (normalizedMediaList.length > 1 && i < normalizedMediaList.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-            }
-        } else {
-            // Send text message
-            await connection.socket.sendMessage(jid, { text: resolvedMessage });
-        }
-
-        console.log(`[Baileys] ✅ Message(s) sent to ${to}`);
-        return { success: true };
-    } catch (error) {
-        console.error(`[Baileys] ❌ Error sending message:`, error);
-        throw error;
-    }
-}
-
-export async function sendBaileysBulkMessages(
-    userId: string,
-    contacts: Array<{ phone: string; message: string }>,
-    mediaList?: Array<{ url?: string, buffer?: Buffer, mimetype?: string, filename?: string }> | { url?: string, buffer?: Buffer, mimetype?: string, filename?: string }
-) {
-    const connection = activeConnections.get(userId);
-
-    if (!connection || !connection.socket || !connection.isReady) {
-        throw new Error('WhatsApp is not connected. Please scan QR code first.');
-    }
-
-    const results = [];
-    let count = 0;
-
-    for (const contact of contacts) {
-        try {
-            await sendBaileysMessage(userId, contact.phone, contact.message, mediaList);
-            results.push({ phone: contact.phone, success: true });
-            count++;
-
-            // Anti-Spam: Dynamic Delay
-            // Base delay 3-7 seconds
-            let delay = 3000 + Math.random() * 4000;
-
-            // Larger delay every 10 messages (10-20 seconds)
-            if (count % 10 === 0) {
-                console.log(`[Baileys] Anti-Spam: Cooldown active after 10 messages...`);
-                delay += 10000 + Math.random() * 10000;
-            }
-
-            await new Promise(resolve => setTimeout(resolve, delay));
-        } catch (error) {
-            results.push({ phone: contact.phone, success: false, error: String(error) });
-        }
-    }
-
-    return results;
+    return initiationPromise;
 }
 
 export function disconnectBaileys(userId: string) {
-    const connection = activeConnections.get(userId);
-    if (connection?.socket) {
+    debugLog(`[Baileys] 🔌 Disconnecting instance: ${userId}`);
+    const conn = activeConnections.get(userId);
+    if (conn) {
         try {
-            connection.socket.ev.removeAllListeners('connection.update');
-            connection.socket.ev.removeAllListeners('creds.update');
-            connection.socket.end(undefined);
+            // Remove all possible listeners to prevent memory leaks and ghost updates
+            conn.socket?.ev?.removeAllListeners('connection.update');
+            conn.socket?.ev?.removeAllListeners('creds.update');
+            conn.socket?.ev?.removeAllListeners('messaging-history.set');
+
+            // Force destroy the socket
+            if (conn.socket?.ws) {
+                conn.socket.ws.close();
+                conn.socket.ws.terminate?.();
+            }
+            conn.socket?.end(undefined);
         } catch (e) { }
+        activeConnections.delete(userId);
     }
-    activeConnections.delete(userId);
-    initializationLocks.delete(userId);
-    console.log(`[Baileys] Disconnected user: ${userId}`);
+
+    // Explicitly delete any stale memory associations
+    memoryLocks.delete(userId);
+    connPromises.delete(userId);
+    releaseLock(userId);
+
+    // CRITICAL: Aggressively purge ALL session directories on disk for this user
+    try {
+        const baseDir = path.join(process.cwd(), '.baileys_auth');
+        if (fs.existsSync(baseDir)) {
+            const items = fs.readdirSync(baseDir);
+            for (const item of items) {
+                // If the folder matches the userId pattern (e.g., session-v24-ID), kill it
+                if (item.includes(userId)) {
+                    const fullPath = path.join(baseDir, item);
+                    try {
+                        fs.rmSync(fullPath, { recursive: true, force: true });
+                        debugLog(`[Baileys] 🧹 Disk Purge: ${item}`);
+                    } catch (e: any) {
+                        debugLog(`[Baileys] ⚠️ Could not delete ${item}: ${e.message}`);
+                    }
+                }
+            }
+        }
+    } catch (e: any) {
+        debugLog(`[Baileys] ❌ Disk scan failed: ${e.message}`);
+    }
+
+    debugLog(`[Baileys] 🗑️ Global state purged for: ${userId}`);
+}
+
+export function getBaileysQRCode(userId: string): string | null {
+    return activeConnections.get(userId)?.qrCode || null;
+}
+
+export function isBaileysReady(userId: string): boolean {
+    const conn = activeConnections.get(userId);
+
+    // 1. Check memory state (Primary Source of Truth)
+    if (conn) {
+        const ws = conn.socket?.ws;
+        // PERSISTENT READY: If we have keys (isReady) AND the socket isn't explicitly DEAD (Closed/Closing)
+        // This keeps the UI stable during 515 Restarts
+        if (conn.isReady && ws?.readyState !== 3 && ws?.readyState !== 2) return true;
+
+        return false;
+    }
+
+    // 2. CHECK DISK (Strict Fallback for server restarts ONLY)
+    try {
+        const authDir = path.join(process.cwd(), '.baileys_auth', `session-v24-${userId}`);
+        const credsFile = path.join(authDir, 'creds.json');
+
+        // If we are currently initializing a NEW session in memory, 
+        // DO NOT report READY from disk, as we might be switching accounts.
+        if (isBaileysInitializing(userId)) return false;
+
+        if (fs.existsSync(credsFile)) {
+            const creds = JSON.parse(fs.readFileSync(credsFile, 'utf-8'));
+            if (creds?.me?.id) return true;
+        }
+    } catch (e) { }
+
+    return false;
+}
+
+export function isBaileysInitializing(userId: string): boolean {
+    const conn = activeConnections.get(userId);
+    if (!conn) return false;
+    return conn.isInitializing;
+}
+
+export function isBaileysLinking(userId: string): boolean {
+    const conn = activeConnections.get(userId);
+    if (!conn) return false;
+
+    const ws = conn.socket?.ws;
+    // LINKING: We have identity (creds) but the socket is not yet fully 'Open'
+    // This is the period where the phone shows "Connecting..."
+    if (conn.isReady && (ws?.readyState === 0 || ws === undefined || !ws)) return true;
+
+    return conn.isLinking || false;
+}
+
+export async function sendBaileysMessage(userId: string, to: string, message: string, mediaList?: any) {
+    const conn = activeConnections.get(userId);
+    if (!conn || !isBaileysReady(userId)) throw new Error('WhatsApp Disconnected');
+
+    const jid = repairJID(to);
+
+    // Apply Spintax transformation
+    const finalMessage = parseSpintax(message);
+
+    // 2. Typing Simulation (Strong Anti-Ban Signal)
+    try {
+        await conn.socket.sendPresenceUpdate('composing', jid);
+        // Simulate typing time based on message length (min 1s, max 3s)
+        const typingTime = Math.min(Math.max(message.length * 20, 1000), 3000);
+        await new Promise(r => setTimeout(r, typingTime));
+        await conn.socket.sendPresenceUpdate('paused', jid);
+    } catch (e) {
+        debugLog(`[Anti-Ban] ⚠️ Typing signal failed for ${to}`);
+    }
+
+    const media = Array.isArray(mediaList) ? mediaList : (mediaList ? [mediaList] : []);
+
+    if (media.length > 0) {
+        for (const m of media) {
+            const buffer = Buffer.from(m.data || m.buffer, 'base64');
+            const type = m.mimetype.split('/')[0];
+            const payload: any = { caption: finalMessage, mimetype: m.mimetype, fileName: m.filename };
+            if (['image', 'video', 'audio'].includes(type)) payload[type] = buffer;
+            else payload.document = buffer;
+            await conn.socket.sendMessage(jid, payload);
+        }
+    } else {
+        await conn.socket.sendMessage(jid, { text: finalMessage });
+    }
+    return { success: true };
+}
+
+export async function sendBaileysBulkMessages(userId: string, contacts: any[], media?: any, onProgress?: any) {
+    const results = [];
+    let count = 0;
+
+    debugLog(`[Anti-Ban] 🛡️ Starting safe bulk send for ${contacts.length} contacts.`);
+
+    for (const c of contacts) {
+        try {
+            // 1. Turbo Anti-Ban Delay (3-7 seconds)
+            // Typing simulation already provides a natural 1-3s delay
+            const baseDelay = (count > 0 && count % 20 === 0) ? 8000 : 3000;
+            const randomAdd = Math.random() * 4000; // + 0-4s
+            const totalDelay = baseDelay + randomAdd;
+
+            if (count > 0) {
+                debugLog(`[Anti-Ban] ⚡ Turbo Wait: ${(totalDelay / 1000).toFixed(1)}s...`);
+                await new Promise(r => setTimeout(r, totalDelay));
+            }
+
+            // 2. Transmit Message (Includes Typing Sim)
+            const res = await sendBaileysMessage(userId, c.phone, c.message, media);
+            results.push({ ...res, phone: c.phone });
+            count++;
+
+            // 3. Progress Update
+            if (onProgress) await onProgress(count, contacts.length, { ...res, phone: c.phone });
+
+            // 4. Optimized Batch Cooling (Every 30 messages, take a 45s break)
+            if (count % 30 === 0 && count < contacts.length) {
+                const coolingBreak = 45000 + (Math.random() * 15000); // 45-60 seconds
+                debugLog(`[Anti-Ban] ⚡ Quick Cool: ${(coolingBreak / 1000).toFixed(1)}s break...`);
+                await new Promise(r => setTimeout(r, coolingBreak));
+            }
+
+        } catch (e: any) {
+            debugLog(`[Anti-Ban] ❌ Transmission failure for ${c.phone}: ${e.message}`);
+            results.push({ success: false, error: e.message, phone: c.phone });
+            count++;
+            if (onProgress) await onProgress(count, contacts.length, { success: false, error: e.message, phone: c.phone });
+        }
+    }
+    return results;
 }

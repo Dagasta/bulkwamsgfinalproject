@@ -21,6 +21,7 @@ function SignupForm() {
         confirmPassword: '',
     });
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,8 +60,13 @@ function SignupForm() {
 
             if (error) throw error;
 
-            // Redirect to dashboard or show success message
-            router.push('/dashboard');
+            // Show success state
+            setSuccess(true);
+
+            // Redirect to dashboard after a short delay to let them see the success
+            setTimeout(() => {
+                router.push('/dashboard');
+            }, 2000);
         } catch (error: any) {
             setError(error.message || 'Failed to create account');
         } finally {
@@ -119,76 +125,91 @@ function SignupForm() {
                             {plan ? `Join the ${plan} community` : 'Unlock Enterprise-grade Messaging'}
                         </p>
 
-                        {error && (
-                            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                                {error}
+                        {success ? (
+                            <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 animate-in fade-in zoom-in duration-500">
+                                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+                                    <CheckCircle2 className="w-12 h-12 text-green-500" />
+                                </div>
+                                <h2 className="text-2xl font-bold text-dark-navy">Account Created!</h2>
+                                <p className="text-slate-gray">Redirecting you to your dashboard...</p>
                             </div>
+                        ) : (
+                            <>
+                                {error && (
+                                    <div className="mb-6 p-4 bg-red-50 border-2 border-red-100 rounded-2xl flex items-center gap-3 text-red-600 font-bold animate-in slide-in-from-top duration-300">
+                                        <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                            <span className="text-lg">❌</span>
+                                        </div>
+                                        {error}
+                                    </div>
+                                )}
+
+                                <form onSubmit={handleSignup} className="space-y-4">
+                                    <Input
+                                        label="Full Name"
+                                        name="name"
+                                        type="text"
+                                        placeholder="John Doe"
+                                        value={formData.name}
+                                        onChange={handleChange}
+                                        required
+                                    />
+
+                                    <Input
+                                        label="Email"
+                                        name="email"
+                                        type="email"
+                                        placeholder="your@email.com"
+                                        value={formData.email}
+                                        onChange={handleChange}
+                                        required
+                                    />
+
+                                    <Input
+                                        label="Password"
+                                        name="password"
+                                        type="password"
+                                        placeholder="••••••••"
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        required
+                                    />
+
+                                    <Input
+                                        label="Confirm Password"
+                                        name="confirmPassword"
+                                        type="password"
+                                        placeholder="••••••••"
+                                        value={formData.confirmPassword}
+                                        onChange={handleChange}
+                                        required
+                                    />
+
+                                    <div className="text-xs text-slate-gray">
+                                        By creating an account, you agree to our{' '}
+                                        <Link href="/terms" className="text-trust-blue hover:underline">
+                                            Terms of Service
+                                        </Link>{' '}
+                                        and{' '}
+                                        <Link href="/privacy" className="text-trust-blue hover:underline">
+                                            Privacy Policy
+                                        </Link>
+                                    </div>
+
+                                    <Button type="submit" className="w-full" disabled={loading}>
+                                        {loading ? 'Creating account...' : 'Create Account'}
+                                        {!loading && <ArrowRight className="w-5 h-5" />}
+                                    </Button>
+                                </form>
+
+                                <div className="mt-6 text-center text-sm text-slate-gray">
+                                    Already have an account?{' '}
+                                    <Link href="/login" className="text-trust-blue font-semibold hover:underline">
+                                        Sign in
+                                    </Link>
+                                </div>
+                            </>
                         )}
-
-                        <form onSubmit={handleSignup} className="space-y-4">
-                            <Input
-                                label="Full Name"
-                                name="name"
-                                type="text"
-                                placeholder="John Doe"
-                                value={formData.name}
-                                onChange={handleChange}
-                                required
-                            />
-
-                            <Input
-                                label="Email"
-                                name="email"
-                                type="email"
-                                placeholder="your@email.com"
-                                value={formData.email}
-                                onChange={handleChange}
-                                required
-                            />
-
-                            <Input
-                                label="Password"
-                                name="password"
-                                type="password"
-                                placeholder="••••••••"
-                                value={formData.password}
-                                onChange={handleChange}
-                                required
-                            />
-
-                            <Input
-                                label="Confirm Password"
-                                name="confirmPassword"
-                                type="password"
-                                placeholder="••••••••"
-                                value={formData.confirmPassword}
-                                onChange={handleChange}
-                                required
-                            />
-
-                            <div className="text-xs text-slate-gray">
-                                By creating an account, you agree to our{' '}
-                                <Link href="/terms" className="text-trust-blue hover:underline">
-                                    Terms of Service
-                                </Link>{' '}
-                                and{' '}
-                                <Link href="/privacy" className="text-trust-blue hover:underline">
-                                    Privacy Policy
-                                </Link>
-                            </div>
-
-                            <Button type="submit" className="w-full" disabled={loading}>
-                                {loading ? 'Creating account...' : 'Create Account'}
-                                {!loading && <ArrowRight className="w-5 h-5" />}
-                            </Button>
-                        </form>
-
-                        <div className="mt-6 text-center text-sm text-slate-gray">
-                            Already have an account?{' '}
-                            <Link href="/login" className="text-trust-blue font-semibold hover:underline">
-                                Sign in
-                            </Link>
-                        </div>
                     </div>
                 </div>
 

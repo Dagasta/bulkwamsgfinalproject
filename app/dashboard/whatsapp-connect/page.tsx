@@ -28,6 +28,11 @@ export default function WhatsAppConnectPage() {
                 setIsReady(true);
                 setQrCode(null);
                 setIsLoading(false);
+            } else if (data.linking) {
+                setStatusMessage('Linking device... Please wait.');
+                setIsLoading(true);
+                setQrCode(null);
+                setIsReady(false);
             } else if (data.qrCode) {
                 setQrCode(data.qrCode);
                 setIsReady(false);
@@ -45,7 +50,7 @@ export default function WhatsAppConnectPage() {
 
     useEffect(() => {
         checkStatus();
-        const interval = setInterval(checkStatus, 4000); // 4s interval is more stable on Windows
+        const interval = setInterval(checkStatus, 1000); // Ultra-fast 1s polling for instant feedback
         return () => clearInterval(interval);
     }, [checkStatus]);
 
@@ -178,7 +183,7 @@ export default function WhatsAppConnectPage() {
                             </div>
                         </div>
 
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center gap-8">
                             <div className="p-1.5 rounded-[44px] bg-gradient-primary shadow-2xl relative">
                                 <div className="absolute -inset-4 bg-gradient-primary blur-2xl opacity-10"></div>
                                 <div className="bg-white p-6 rounded-[38px] relative">
@@ -192,7 +197,16 @@ export default function WhatsAppConnectPage() {
                                     />
                                 </div>
                             </div>
-                            <p className="mt-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Encrypted Handshake Protocol v2.1</p>
+
+                            <button
+                                onClick={handleReset}
+                                className="inline-flex items-center gap-3 px-8 py-4 bg-slate-50 text-slate-500 rounded-[20px] hover:bg-trust-blue hover:text-white hover:shadow-xl transition-all font-black text-xs uppercase tracking-widest border border-slate-100"
+                            >
+                                <RefreshCw className="w-4 h-4" />
+                                Refresh QR Code
+                            </button>
+
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Encrypted Handshake Protocol v2.1</p>
                         </div>
                     </div>
                 )}

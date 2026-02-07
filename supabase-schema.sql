@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   company_name TEXT,
   phone TEXT,
   plan TEXT DEFAULT 'free',
+  expires_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -60,6 +61,9 @@ CREATE TABLE IF NOT EXISTS campaigns (
   sent_count INTEGER DEFAULT 0,
   delivered_count INTEGER DEFAULT 0,
   scheduled_at TIMESTAMP WITH TIME ZONE,
+  timezone TEXT DEFAULT 'UTC',
+  media JSONB,
+  error_log TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -85,9 +89,9 @@ CREATE TABLE IF NOT EXISTS messages (
 
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Users can view own messages" ON messages;
-CREATE POLICY "Users can view own messages" ON messages
-  FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can manage own messages" ON messages;
+CREATE POLICY "Users can manage own messages" ON messages
+  FOR ALL USING (auth.uid() = user_id);
 
 -- 5. Analytics Table
 CREATE TABLE IF NOT EXISTS analytics (

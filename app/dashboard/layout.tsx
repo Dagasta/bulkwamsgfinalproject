@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import Sidebar from '@/components/dashboard/Sidebar';
+import WorkerPulse from '@/components/dashboard/WorkerPulse';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,7 @@ export default async function DashboardLayout({
                 <main className="p-8 max-w-[1600px] mx-auto">
                     {children}
                 </main>
+                <WorkerPulse />
             </div>
         </div>
     );
