@@ -195,17 +195,15 @@ export async function connectToWhatsApp(userId: string) {
                 version,
                 auth: state,
                 printQRInTerminal: false,
-                browser: ['Windows', 'Chrome', '121.0.6167.184'],
-                connectTimeoutMs: 60000,
-                defaultQueryTimeoutMs: 60000,
-                keepAliveIntervalMs: 30000,
+                browser: ['Mac OS', 'Chrome', '121.0.0.0'], // Standard stable browser string
+                connectTimeoutMs: 90000, // Increased for stability
+                defaultQueryTimeoutMs: 120000,
+                keepAliveIntervalMs: 25000,
                 retryRequestDelayMs: 5000,
                 fireInitQueries: true,
                 markOnlineOnConnect: true,
                 generateHighQualityLinkPreview: true,
                 syncFullHistory: false,
-                linkPreviewImageThumbnailWidth: 192,
-                msgRetryCounterCache: undefined,
                 shouldIgnoreJid: (jid) => jid.includes('broadcast') || jid.includes('status')
             });
 
@@ -233,14 +231,12 @@ export async function connectToWhatsApp(userId: string) {
                     await adminClient.from('profiles').update({
                         whatsapp_session: state.creds
                     }).eq('id', userId);
-                    debugLog(`[Fortress] 🏰 Session backed up to Database for ${userId}`);
                 } catch (e: any) {
                     debugLog(`[Fortress] ⚠️ Backup failed: ${e.message}`);
                 }
 
-                // If we just got identity, we are halfway home
                 if (socket.authState.creds.me?.id && !connState.isReady) {
-                    debugLog(`[Baileys] 🆔 Identity established for: ${userId}. Linking in progress...`);
+                    debugLog(`[Baileys] 🆔 Identity established for: ${userId}.`);
                     connState.isReady = true;
                     connState.isLinking = true;
 
@@ -274,7 +270,6 @@ export async function connectToWhatsApp(userId: string) {
 
                 if (connection === 'open') {
                     debugLog(`[Baileys] ✅ CONNECTED & SYNCED [${userId}]`);
-                    debugLog(`[Baileys] ⚡ LIVE & SECURED [${userId}] (Took ${((Date.now() - connState.startedAt) / 1000).toFixed(1)}s)`);
                     connState.isReady = true;
                     connState.isInitializing = false;
                     connState.isLinking = false;
@@ -287,25 +282,25 @@ export async function connectToWhatsApp(userId: string) {
                         whatsapp_status: 'connected',
                         whatsapp_qr: null
                     }).eq('id', userId);
-                    debugLog(`[DB] 🔒 CONNECTION SEALED GLOSSALLY FOR ${userId}`);
                 }
 
                 if (connection === 'close') {
                     const errorCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
-                    debugLog(`[Baileys] 🛑 DISCONNECTED [${userId}] (Code: ${errorCode})`);
+                    const errorReason = (lastDisconnect?.error as any)?.message || 'Unknown';
+                    debugLog(`[Baileys] 🛑 DISCONNECTED [${userId}] (Code: ${errorCode}, Reason: ${errorReason})`);
 
-                    // ONLY purge on explicit logout or 401 (Unauthorized)
                     const isFatal = errorCode === DisconnectReason.loggedOut || errorCode === 401;
 
                     if (isFatal) {
                         debugLog(`[Baileys] 💀 FATAL: ${errorCode}. Purging Identity ${userId}`);
-                        disconnectBaileys(userId); // Full Purge (Memory + Disk)
+                        disconnectBaileys(userId);
                     } else {
                         debugLog(`[Baileys] 🔄 SOFT RECONNECT: ${errorCode}. Attempting recovery...`);
-                        // Recover in-place without purging disk
                         setTimeout(() => {
-                            connectToWhatsApp(userId).catch(() => { });
-                        }, 2000);
+                            if (activeConnections.has(userId)) {
+                                connectToWhatsApp(userId).catch(() => { });
+                            }
+                        }, 3000);
                     }
                 }
             });

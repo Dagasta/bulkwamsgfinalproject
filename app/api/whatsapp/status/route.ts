@@ -69,7 +69,7 @@ export async function GET() {
             if (!ready) initializing = true;
         }
 
-        console.log(`[Baileys Status] 📊 User ${userId} - DB Ready: ${dbReady}, Socket: ${isSocketAlive}`);
+        console.log(`[Baileys Status] 📊 User ${userId} - DB Ready: ${dbReady}, Socket: ${isSocketAlive}, DB QR: ${!!dbQR}, DB Status: ${dbStatus}`);
 
         return NextResponse.json({
             qrCode,
@@ -81,6 +81,7 @@ export async function GET() {
             linking,
             timestamp: Date.now(),
             isSyncing: ready && (!isSocketAlive),
+            dbStatus, // New for diagnostics
             message: ready
                 ? (isSocketAlive ? 'WhatsApp is connected' : 'Neural Link Active (Syncing...)')
                 : linking
