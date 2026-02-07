@@ -27,31 +27,37 @@ export async function GET() {
         let memoryReady = isBaileysReady(userId);
         let qrCode = getBaileysQRCode(userId);
 
-        // --- THE PERMANENT TRUTH (V42) ---
-        const { data: profile } = await supabase.from('profiles').select('whatsapp_linked').eq('id', userId).single();
+        // --- THE PERMANENT TRUTH (V43 - GLOBAL SYNC) ---
+        const { data: profile } = await supabase.from('profiles').select('whatsapp_linked, whatsapp_status, whatsapp_qr').eq('id', userId).single();
         const dbReady = profile?.whatsapp_linked || false;
+        const dbStatus = profile?.whatsapp_status || 'idle';
+        const dbQR = profile?.whatsapp_qr;
 
         // HYBRID READY: Success if memory says so OR DB says so.
-        // This makes the initial scan result INSTANT.
-        const ready = memoryReady || dbReady;
+        let ready = memoryReady || dbReady || dbStatus === 'connected';
 
-        // --- THE CONNECTION BRIDGE (V41) ---
+        // HYBRID QR: Use DB QR if memory is empty (Cluster Sync)
+        if (!qrCode && dbQR) qrCode = dbQR;
+
+        // HYBRID STATE
+        if (dbStatus === 'linking') linking = true;
+        if (dbStatus === 'initializing') initializing = true;
+
+        // --- THE CONNECTION BRIDGE ---
         const { activeConnections, connPromises } = await import('@/lib/whatsapp/baileys-client');
         const isSocketAlive = activeConnections.has(userId);
         const isInitiating = connPromises.has(userId);
 
         // TRIGGER LOGIC:
-        // 1. If DB says linked but memory is cold -> Wakeup
-        // 2. If NOT linked AND not initializing AND no QR -> Start Handshake
         const shouldTrigger = (ready && !isSocketAlive && !isInitiating) ||
             (!ready && !initializing && !qrCode && !isInitiating);
 
         if (shouldTrigger) {
-            console.log(`[Baileys Status] 🌉 Neural Pulse Triggered for ${userId} (Ready: ${ready})`);
+            console.log(`[Baileys Status] 🌉 Neural Pulse Triggered for ${userId} (Global Mode)`);
             connectToWhatsApp(userId).catch(err => {
                 console.error(`[Baileys Status] ❌ Bridge failed:`, err);
             });
-            if (!ready) initializing = true; // Optimistically show initializing state
+            if (!ready) initializing = true;
         }
 
         console.log(`[Baileys Status] 📊 User ${userId} - DB Ready: ${dbReady}, Socket: ${isSocketAlive}`);

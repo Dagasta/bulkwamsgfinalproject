@@ -16,7 +16,17 @@ export async function POST() {
         // 1. Disconnect and Purge EVERY trace (Memory + Disk Pattern Match)
         disconnectBaileys(userId);
 
-        // 2. Extra delay to ensure locks are released by OS
+        // 2. Global-Sync: Wipe DB state for a truly fresh start
+        import('@/lib/supabase/service').then(({ createServiceClient }) => {
+            createServiceClient().from('profiles').update({
+                whatsapp_linked: false,
+                whatsapp_status: 'idle',
+                whatsapp_qr: null,
+                whatsapp_session: null
+            }).eq('id', userId);
+        });
+
+        // 3. Extra delay to ensure locks are released by OS
         await new Promise(r => setTimeout(r, 1000));
 
         return NextResponse.json({ success: true, message: 'Neural network reconstructed successfully' });

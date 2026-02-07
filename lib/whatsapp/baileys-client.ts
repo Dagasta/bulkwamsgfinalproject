@@ -157,6 +157,22 @@ export async function connectToWhatsApp(userId: string) {
 
             debugLog(`[Baileys-V24] 🔥 High-Performance Initiation: ${userId}`);
 
+            // 4. Fortress Sync: Pull session from DB before starting
+            try {
+                const { createServiceClient } = await import('@/lib/supabase/service');
+                const adminClient = createServiceClient();
+                const { data: profile } = await adminClient.from('profiles').select('whatsapp_session').eq('id', userId).single();
+
+                if (profile?.whatsapp_session) {
+                    const credsFile = path.join(authDir, 'creds.json');
+                    // Only write if local doesn't exist or is different (speed optimization)
+                    fs.writeFileSync(credsFile, JSON.stringify(profile.whatsapp_session, null, 2));
+                    debugLog(`[Fortress] 🏰 Session restored from Database for ${userId}`);
+                }
+            } catch (e: any) {
+                debugLog(`[Fortress] ⚠️ Could not pull session: ${e.message}`);
+            }
+
             const { state, saveCreds } = await getBaileysAuthState(authDir);
 
             // Version caching for extreme QR speed
@@ -209,11 +225,30 @@ export async function connectToWhatsApp(userId: string) {
                 debugLog(`[Trace] 💾 Creds Sync [${userId}]`);
                 await saveCreds();
 
+                // Fortress Sync: Push to DB
+                try {
+                    const { createServiceClient } = await import('@/lib/supabase/service');
+                    const adminClient = createServiceClient();
+                    await adminClient.from('profiles').update({
+                        whatsapp_session: state.creds
+                    }).eq('id', userId);
+                    debugLog(`[Fortress] 🏰 Session backed up to Database for ${userId}`);
+                } catch (e: any) {
+                    debugLog(`[Fortress] ⚠️ Backup failed: ${e.message}`);
+                }
+
                 // If we just got identity, we are halfway home
                 if (socket.authState.creds.me?.id && !connState.isReady) {
                     debugLog(`[Baileys] 🆔 Identity established for: ${userId}. Linking in progress...`);
                     connState.isReady = true;
                     connState.isLinking = true;
+
+                    // Global-Sync
+                    import('@/lib/supabase/service').then(({ createServiceClient }) => {
+                        createServiceClient().from('profiles').update({
+                            whatsapp_status: 'linking'
+                        }).eq('id', userId);
+                    });
                 }
             });
 
@@ -224,6 +259,14 @@ export async function connectToWhatsApp(userId: string) {
                     QRCode.toDataURL(qr, { margin: 2, width: 400 }).then(data => {
                         connState.qrCode = data;
                         debugLog(`[Baileys] 📱 QR Pulsing [${userId}]`);
+
+                        // Global-Sync: Push QR to DB
+                        import('@/lib/supabase/service').then(({ createServiceClient }) => {
+                            createServiceClient().from('profiles').update({
+                                whatsapp_qr: data,
+                                whatsapp_status: 'qr_ready'
+                            }).eq('id', userId);
+                        });
                     }).catch(e => {
                         debugLog(`[Baileys] ❌ QR Gen Fail: ${e.message}`);
                     });
@@ -237,13 +280,16 @@ export async function connectToWhatsApp(userId: string) {
                     connState.isLinking = false;
                     connState.qrCode = null;
 
-                    // Update DB for Permanent Truth
+                    // Global-Sync: Success Lock
                     import('@/lib/supabase/service').then(({ createServiceClient }) => {
-                        const adminClient = createServiceClient();
-                        adminClient.from('profiles').update({ whatsapp_linked: true }).eq('id', userId).then(() => {
-                            debugLog(`[DB] 💾 Link state locked for ${userId}`);
+                        createServiceClient().from('profiles').update({
+                            whatsapp_linked: true,
+                            whatsapp_status: 'connected',
+                            whatsapp_qr: null
+                        }).eq('id', userId).then(() => {
+                            debugLog(`[DB] 🔒 CONNECTION SEALED GLOSSALLY FOR ${userId}`);
                         });
-                    }).catch(e => debugLog(`[DB] ⚠️ Link lock failed: ${e.message}`));
+                    });
                 }
 
                 if (connection === 'close') {
