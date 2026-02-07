@@ -65,9 +65,10 @@ export default function WhatsAppConnectPage() {
 
     useEffect(() => {
         checkStatus();
-        const interval = setInterval(checkStatus, 1000); // Ultra-fast 1s polling for instant feedback
+        // HYPER-POLLING: 1s for ultra-fast response, slowed to 3s only once fully ready
+        const interval = setInterval(checkStatus, isReady ? 3000 : 1000);
         return () => clearInterval(interval);
-    }, [checkStatus]);
+    }, [checkStatus, isReady]);
 
     const handleReset = async () => {
         if (!confirm('Are you sure you want to reset the WhatsApp connection?')) return;

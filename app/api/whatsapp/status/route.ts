@@ -36,17 +36,23 @@ export async function GET() {
         // We only show "Scan QR" if DB is false.
         const ready = dbReady;
 
-        // --- THE CONNECTION BRIDGE ---
+        // --- THE CONNECTION BRIDGE (V41) ---
         const { activeConnections, connPromises } = await import('@/lib/whatsapp/baileys-client');
         const isSocketAlive = activeConnections.has(userId);
         const isInitiating = connPromises.has(userId);
 
-        // If DB says linked but memory is cold, Bridge Trigger MUST wake up the socket.
-        if (ready && !isSocketAlive && !isInitiating) {
-            console.log(`[Baileys Status] 🌉 Neural Bridge Awakening for ${userId}`);
+        // TRIGGER LOGIC:
+        // 1. If DB says linked but memory is cold -> Wakeup
+        // 2. If NOT linked AND not initializing AND no QR -> Start Handshake
+        const shouldTrigger = (ready && !isSocketAlive && !isInitiating) ||
+            (!ready && !initializing && !qrCode && !isInitiating);
+
+        if (shouldTrigger) {
+            console.log(`[Baileys Status] 🌉 Neural Pulse Triggered for ${userId} (Ready: ${ready})`);
             connectToWhatsApp(userId).catch(err => {
                 console.error(`[Baileys Status] ❌ Bridge failed:`, err);
             });
+            if (!ready) initializing = true; // Optimistically show initializing state
         }
 
         console.log(`[Baileys Status] 📊 User ${userId} - DB Ready: ${dbReady}, Socket: ${isSocketAlive}`);
