@@ -48,12 +48,12 @@ export default function HomePage() {
                         </div>
 
                         <h1 className="text-6xl md:text-8xl font-black text-dark-navy leading-[1.05] tracking-tight animate-slide-up">
-                            Reach Thousands <br />
-                            <span className="gradient-text">In One Click.</span>
+                            The World&apos;s Unbreakable <br />
+                            <span className="gradient-text">WhatsApp Engine.</span>
                         </h1>
 
                         <p className="text-xl md:text-2xl text-slate-gray leading-relaxed max-w-2xl mx-auto font-medium opacity-90">
-                            The world&apos;s most powerful Bulk WhatsApp platform for modern marketing. 100% Secure. Unlimited Scale. Professional Results.
+                            Scale without limits using our <span className="text-trust-blue font-bold">Iron-Clad</span> persistent link. Advanced Anti-Ban AI, precision scheduling, and deep analytics to dominate your niche.
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-6 justify-center pt-6 animate-slide-up delay-100">
@@ -209,27 +209,27 @@ const features = [
     },
     {
         icon: Shield,
-        title: 'Ghost Mode Safety',
-        description: 'Our proprietary Ghost Mode rotates content and uses human-mimicry delays to keep your account safe from bans.',
+        title: 'Ghost Mode (Anti-Ban)',
+        description: 'Our proprietary AI-mimicry rotates content and uses human-like dispatch delays to keep your account 100% safe from bans.',
+    },
+    {
+        icon: Calendar,
+        title: 'Precision Scheduling',
+        description: 'Plan your campaigns 24/7. Our Fortress Storage ensures your messages go out on time, even if you are offline.',
+    },
+    {
+        icon: BarChart3,
+        title: 'Elite Analytics',
+        description: 'Real-time neural dashboards showing delivery, read, and conversion rates. Data-driven growth has never been this easy.',
+    },
+    {
+        icon: Zap,
+        title: 'Eternal Signal Link',
+        description: 'Scan once, connect forever. Our new Global-Sync technology ensures your link never flickers or disconnects.',
     },
     {
         icon: Upload,
         title: 'HD Multi-Media',
-        description: 'Attach 4K images, documents, and videos. Your media is delivered in high-definition without compression.',
-    },
-    {
-        icon: Users,
-        title: 'Niche Segmentation',
-        description: 'Target your audience with laser precision. Categorize and tag contacts to send highly relevant content.',
-    },
-    {
-        icon: BarChart3,
-        title: 'Insight Analytics',
-        description: 'Real-time dashboards showing delivery, read, and conversion rates. Data-driven marketing has never been easier.',
-    },
-    {
-        icon: Zap,
-        title: 'Instant Setup',
-        description: 'No complex API registration. Link your existing device in 10 seconds and start sending immediately.',
+        description: 'Attach 4K images, documents, and videos. Your media is delivered in high-definition brilliance without any compression.',
     },
 ];
