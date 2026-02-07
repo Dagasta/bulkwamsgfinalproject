@@ -49,12 +49,12 @@ export default function HomePage() {
                         </div>
 
                         <h1 className="text-6xl md:text-8xl font-black text-dark-navy leading-[1.05] tracking-tight animate-slide-up">
-                            Own The Niche. <br />
-                            <span className="gradient-text underline decoration-indigo-500/20 underline-offset-8">Crush The Limits.</span>
+                            Master WhatsApp Marketing. <br />
+                            <span className="gradient-text underline decoration-indigo-500/20 underline-offset-8">Crush Every Limit.</span>
                         </h1>
 
-                        <p className="text-xl md:text-2xl text-slate-gray leading-relaxed max-w-2xl mx-auto font-medium opacity-90 italic">
-                            The world&apos;s only <span className="text-trust-blue font-black uppercase tracking-widest">Unstoppable</span> WhatsApp engine. Powered by Ghost-AI Anti-Ban, Fortress Stability, and Hyper-Growth analytics.
+                        <p className="text-xl md:text-2xl text-slate-gray leading-relaxed max-w-3xl mx-auto font-medium opacity-90 italic">
+                            The world&apos;s most powerful <span className="text-trust-blue font-black uppercase tracking-widest">Bulk Messaging & Scheduling</span> engine. Reach thousands with our 100% Secure Anti-Ban AI and Unbreakable Iron-Clad links.
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-6 justify-center pt-6 animate-slide-up delay-100">
